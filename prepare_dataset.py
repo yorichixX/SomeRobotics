@@ -22,6 +22,8 @@ def main():
     parser.add_argument("--roboflow-key", type=str, default=None, help="Roboflow API key")
     parser.add_argument("--roboflow-project", type=str, default=None, help="Roboflow project ID")
     parser.add_argument("--roboflow-workspace", type=str, default=None, help="Roboflow workspace name")
+    parser.add_argument("--bdd-split", type=str, choices=["train", "val"], default="train", help="Dataset split: 'train' or 'val'")
+    parser.add_argument("--max-samples", type=int, default=None, help="Maximum number of images to extract")
     parser.add_argument("--summary", action="store_true", help="Print dataset class distribution summary")
 
     args = parser.parse_args()
@@ -59,8 +61,13 @@ def main():
         if not args.bdd_json or not args.bdd_images:
             print("Error: --bdd-json and --bdd-images are required for BDD100K conversion mode.")
             return
-        print(f"Converting BDD100K dataset from {args.bdd_json}...")
-        count = dm.convert_bdd100k_to_yolo(args.bdd_json, args.bdd_images, split="train")
+        print(f"Converting BDD100K dataset from {args.bdd_json} for '{args.bdd_split}' split...")
+        count = dm.convert_bdd100k_to_yolo(
+            bdd_json_path=args.bdd_json,
+            images_src_dir=args.bdd_images,
+            split=args.bdd_split,
+            max_samples=args.max_samples,
+        )
         dm.write_dataset_yaml()
         print(f"Done! Converted {count} labeled images to YOLO format.")
         dm.inspect_and_summarize()

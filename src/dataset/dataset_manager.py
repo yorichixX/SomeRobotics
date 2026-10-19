@@ -68,26 +68,14 @@ class DatasetManager:
         images_src_dir: str,
         split: str = "train",
         category_map: Optional[Dict[str, str]] = None,
+        max_samples: Optional[int] = None,
     ) -> int:
-        """Convert BDD100K detection labels to YOLO format.
-        
-        BDD100K labels format:
-        [
-          {
-            "name": "image_name.jpg",
-            "labels": [
-              {
-                "category": "traffic sign",
-                "box2d": {"x1": 100, "y1": 50, "x2": 150, "y2": 110}
-              }
-            ]
-          }
-        ]
-        """
+        """Convert BDD100K detection labels to YOLO format."""
+        import shutil
+
         if category_map is None:
             category_map = {
                 "traffic sign": "stop_sign",
-                "traffic light": "stop_sign",
                 "barrier": "barrier",
                 "cone": "cone",
             }
@@ -97,27 +85,30 @@ class DatasetManager:
         os.makedirs(target_images, exist_ok=True)
         os.makedirs(target_labels, exist_ok=True)
 
+        print(f"[BDD100K] Loading annotations from: {bdd_json_path}")
         with open(bdd_json_path, "r") as f:
             data = json.load(f)
 
         converted_count = 0
+        total_items = len(data)
+        print(f"[BDD100K] Parsing {total_items} entries for '{split}' split...")
 
-        for item in data:
+        for idx, item in enumerate(data):
+            if max_samples is not None and converted_count >= max_samples:
+                break
+
             image_name = item.get("name")
             labels = item.get("labels", [])
             if not labels:
                 continue
 
-            yolo_lines = []
             img_path = os.path.join(images_src_dir, image_name)
             if not os.path.exists(img_path):
                 continue
 
-            # Read image dimensions
-            img = cv2.imread(img_path)
-            if img is None:
-                continue
-            h, w = img.shape[:2]
+            # Standard BDD100K images are 1280x720
+            w, h = 1280.0, 720.0
+            yolo_lines = []
 
             for label in labels:
                 cat = label.get("category", "").lower()
@@ -133,27 +124,29 @@ class DatasetManager:
                 x1, y1 = float(box["x1"]), float(box["y1"])
                 x2, y2 = float(box["x2"]), float(box["y2"])
 
-                # Convert to YOLO format: class_id, x_center, y_center, width, height (normalized)
-                xc = ((x1 + x2) / 2.0) / w
-                yc = ((y1 + y2) / 2.0) / h
+                # Normalize bounding box
                 bw = (x2 - x1) / w
                 bh = (y2 - y1) / h
+                xc = ((x1 + x2) / 2.0) / w
+                yc = ((y1 + y2) / 2.0) / h
 
-                yolo_lines.append(f"{class_id} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}")
+                if bw > 0.005 and bh > 0.005:
+                    yolo_lines.append(f"{class_id} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}")
 
             if yolo_lines:
-                # Copy or link image
                 dest_img = os.path.join(target_images, image_name)
-                cv2.imwrite(dest_img, img)
+                shutil.copy2(img_path, dest_img)
 
-                # Write label
                 label_name = os.path.splitext(image_name)[0] + ".txt"
                 dest_label = os.path.join(target_labels, label_name)
                 with open(dest_label, "w") as lf:
                     lf.write("\n".join(yolo_lines) + "\n")
 
                 converted_count += 1
+                if converted_count % 100 == 0:
+                    print(f"  Converted {converted_count} labeled road scenes...")
 
+        print(f"[BDD100K] Completed! Extracted {converted_count} images into {target_images}")
         return converted_count
 
     def generate_synthetic_dataset(
