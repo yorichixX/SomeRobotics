@@ -75,13 +75,27 @@ def train_model(
     )
 
     # Locate best weights
-    best_weights_path = os.path.join(project, name, "weights", "best.pt")
-    os.makedirs(weights_export_dir, exist_ok=True)
+    best_weights_path = None
+    if hasattr(model, "trainer") and hasattr(model.trainer, "best") and model.trainer.best:
+        best_weights_path = str(model.trainer.best)
 
+    if not best_weights_path or not os.path.exists(best_weights_path):
+        candidate_paths = [
+            os.path.join("runs", "detect", project, name, "weights", "best.pt"),
+            os.path.join(project, name, "weights", "best.pt"),
+            os.path.join("runs", "detect", "train", "weights", "best.pt"),
+        ]
+        for p in candidate_paths:
+            if os.path.exists(p):
+                best_weights_path = p
+                break
+
+    os.makedirs(weights_export_dir, exist_ok=True)
     target_export_path = os.path.join(weights_export_dir, "best.pt")
-    if os.path.exists(best_weights_path):
+
+    if best_weights_path and os.path.exists(best_weights_path):
         shutil.copy2(best_weights_path, target_export_path)
-        print(f"\n[SUCCESS] Trained model saved to: {target_export_path}")
+        print(f"\n[SUCCESS] Trained model copied to: {target_export_path}")
     else:
         print(f"\n[INFO] Best weights located at: {best_weights_path}")
         target_export_path = best_weights_path
