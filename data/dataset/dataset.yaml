@@ -1,0 +1,7 @@
+path: E:\Eric robot\data\dataset
+train: images/train
+val: images/val
+names:
+  0: cone
+  1: barrier
+  2: stop_sign

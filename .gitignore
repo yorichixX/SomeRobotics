@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyTorch / Models
+runs/
+*.onnx
+# We track sample weights and benchmark models
+!weights/detector_baseline.pt
+!weights/detector_pruned_30.pt
+
+# Output data
+data/output/*.jpg
+data/output/*.png
+data/output/*.mp4
+
+# IDE
+.vscode/
+.idea/
+*.swp

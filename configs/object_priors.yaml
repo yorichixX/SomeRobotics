@@ -1,0 +1,27 @@
+# Physical object dimension priors (in meters)
+# Used for geometric monocular distance estimation:
+# Distance Z = (focal_length_y * real_height) / bbox_height_px
+
+cone:
+  name: "Cone"
+  real_height_m: 0.70    # Standard traffic cone height (70 cm)
+  real_width_m: 0.38     # Standard cone base width (38 cm)
+  aspect_ratio: 1.84     # height / width
+  min_expected_distance_m: 0.3
+  max_expected_distance_m: 50.0
+
+barrier:
+  name: "Barrier"
+  real_height_m: 0.85    # Standard Jersey/traffic barrier height (85 cm)
+  real_width_m: 1.50     # Standard modular barrier unit length (1.5 m)
+  aspect_ratio: 0.57
+  min_expected_distance_m: 0.5
+  max_expected_distance_m: 80.0
+
+stop_sign:
+  name: "Stop Sign"
+  real_height_m: 0.75    # Standard MUTCD octagonal stop sign height (75 cm)
+  real_width_m: 0.75     # Width is equal to height for regular octagon
+  aspect_ratio: 1.00
+  min_expected_distance_m: 0.5
+  max_expected_distance_m: 100.0

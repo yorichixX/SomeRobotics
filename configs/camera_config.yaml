@@ -1,0 +1,26 @@
+# Camera calibration and intrinsic configuration
+# Pinhole model: fx, fy, cx, cy
+
+# Image resolution
+image_width: 1280
+image_height: 720
+
+# Horizontal Field of View (FOV) in degrees (typical for autonomous vehicle / robotic camera)
+fov_horizontal_deg: 60.0
+fov_vertical_deg: 36.0
+
+# Calculated or calibrated focal length in pixels:
+# fx = (image_width / 2) / tan(deg2rad(fov_horizontal_deg) / 2)
+# fy = (image_height / 2) / tan(deg2rad(fov_vertical_deg) / 2)
+focal_length_x: 1108.51
+focal_length_y: 1108.51
+
+# Principal point (optical center, usually image center)
+principal_point_x: 640.0
+principal_point_y: 360.0
+
+# Extrinsic parameters relative to ground plane
+camera_height_m: 1.20   # Height above ground in meters
+camera_pitch_deg: 0.0   # Pitch angle in degrees (0 = horizontal, positive = downward)
+camera_roll_deg: 0.0
+camera_yaw_deg: 0.0

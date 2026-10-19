@@ -1,0 +1,17 @@
+# Core Deep Learning & Computer Vision
+torch>=2.2.0
+torchvision>=0.17.0
+ultralytics>=8.1.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+pyyaml>=6.0
+
+# Edge Optimization & Model Conversion
+onnx>=1.15.0
+onnxruntime>=1.17.0
+onnxconverter-common>=1.13.0
+
+# Visualization & Evaluation
+matplotlib>=3.8.0
+tqdm>=4.66.0
+pytest>=8.0.0

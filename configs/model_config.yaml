@@ -1,0 +1,33 @@
+# Model architecture and training configuration
+
+model:
+  architecture: "yolov8n"       # Lightweight backbone for edge devices
+  baseline_architecture: "yolov8s" # Baseline for comparison
+  input_size: 640
+  num_classes: 3
+  classes:
+    0: "cone"
+    1: "barrier"
+    2: "stop_sign"
+
+inference:
+  conf_threshold: 0.35
+  iou_threshold: 0.45
+  device: "cuda"               # cuda or cpu
+  half_precision: true         # FP16 inference on GPU
+
+training:
+  epochs: 50
+  batch_size: 32               # Optimized for RTX 4090 (24GB VRAM)
+  workers: 8
+  learning_rate_init: 0.01
+  weight_decay: 0.0005
+  optimizer: "SGD"
+  patience: 10
+  save_dir: "runs/train"
+
+optimization:
+  onnx_export_opset: 14
+  dynamic_axes: true
+  quantization_method: "dynamic" # INT8 dynamic quantization for CPU
+  pruning_amount: 0.30           # 30% L1-unstructured pruning
