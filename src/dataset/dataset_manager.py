@@ -6,7 +6,7 @@ Supports:
 3. Writing YOLO-compatible dataset.yaml files.
 """
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 import os
 import json
 import random
@@ -383,3 +383,105 @@ class DatasetManager:
 
         # Dark border
         cv2.rectangle(img, (x1, y1), (x2, y2), (40, 40, 40), 2)
+
+    def download_and_extract_zip(self, url: str, extract_to: Optional[str] = None) -> str:
+        """Download a dataset zip archive and extract to target directory."""
+        import urllib.request
+        import zipfile
+        import tempfile
+
+        if extract_to is None:
+            extract_to = self.output_dir
+        os.makedirs(extract_to, exist_ok=True)
+
+        print(f"[DATASET DOWNLOAD] Downloading from: {url}")
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+
+        def progress_hook(block_num, block_size, total_size):
+            if total_size > 0:
+                percent = min(100.0, (block_num * block_size / total_size) * 100.0)
+                print(f"\rDownloading: {percent:.1f}% ({block_num * block_size / (1024*1024):.1f} MB / {total_size / (1024*1024):.1f} MB)", end="")
+
+        urllib.request.urlretrieve(url, tmp_path, reporthook=progress_hook)
+        print("\nDownload finished! Extracting archive...")
+
+        with zipfile.ZipFile(tmp_path, "r") as zip_ref:
+            zip_ref.extractall(extract_to)
+
+        os.remove(tmp_path)
+        self.write_dataset_yaml()
+        print(f"[DATASET EXTRACTED] Dataset ready in: {extract_to}")
+        return extract_to
+
+    def download_roboflow_dataset(
+        self,
+        api_key: str,
+        workspace: str,
+        project: str,
+        version: int = 1,
+    ) -> str:
+        """Download public dataset directly using the Roboflow Python SDK."""
+        try:
+            from roboflow import Roboflow
+            rf = Roboflow(api_key=api_key)
+            proj = rf.workspace(workspace).project(project)
+            dataset = proj.version(version).download("yolov8", location=self.output_dir)
+            self.write_dataset_yaml()
+            return self.output_dir
+        except ImportError:
+            raise ImportError("Please install roboflow: pip install roboflow")
+
+    def inspect_and_summarize(self) -> Dict[str, Any]:
+        """Inspect and print class distribution across train and validation splits."""
+        stats: Dict[str, Any] = {
+            "train_images": 0,
+            "val_images": 0,
+            "classes": {cls_name: {"train": 0, "val": 0, "total": 0} for cls_name in self.CLASSES},
+            "unmapped_classes": 0,
+        }
+
+        for split, img_dir, lbl_dir in [
+            ("train", self.images_train, self.labels_train),
+            ("val", self.images_val, self.labels_val),
+        ]:
+            if not os.path.exists(lbl_dir):
+                continue
+
+            label_files = [f for f in os.listdir(lbl_dir) if f.endswith(".txt")]
+            stats[f"{split}_images"] = len(label_files)
+
+            for lf in label_files:
+                lp = os.path.join(lbl_dir, lf)
+                with open(lp, "r") as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if not parts:
+                            continue
+                        try:
+                            cid = int(parts[0])
+                            if 0 <= cid < len(self.CLASSES):
+                                cname = self.CLASSES[cid]
+                                stats["classes"][cname][split] += 1
+                                stats["classes"][cname]["total"] += 1
+                            else:
+                                stats["unmapped_classes"] += 1
+                        except ValueError:
+                            continue
+
+        print("\n" + "=" * 60)
+        print("DATASET CLASS DISTRIBUTION SUMMARY")
+        print("=" * 60)
+        print(f"Train Images: {stats['train_images']} | Val Images: {stats['val_images']}")
+        print("-" * 60)
+        print(f"{'Class ID':<10} {'Class Name':<15} {'Train':<10} {'Val':<10} {'Total':<10}")
+        print("-" * 60)
+        for i, cname in enumerate(self.CLASSES):
+            tr = stats["classes"][cname]["train"]
+            va = stats["classes"][cname]["val"]
+            tot = stats["classes"][cname]["total"]
+            print(f"{i:<10} {cname:<15} {tr:<10} {va:<10} {tot:<10}")
+        print("-" * 60)
+
+        return stats
+

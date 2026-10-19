@@ -152,12 +152,18 @@ bash setup_environment.sh
 setup_environment.bat
 ```
 
-### 2. Prepare Dataset
+### 2. Prepare Dataset (Option A - Unified Cones, Barriers, Stop Signs)
 ```bash
-# Option A: Generate high-resolution synthetic road dataset instantly
-python prepare_dataset.py --mode synthetic --train-samples 100 --val-samples 25
+# Option A (Recommended): One-command dataset preparation and class distribution check
+python prepare_dataset.py --mode download
 
-# Option B: Convert BDD100K JSON annotations to YOLO format
+# Download from an external zip URL (if using custom archive)
+python prepare_dataset.py --mode download --url <DATASET_ZIP_URL>
+
+# Inspect dataset class distribution table
+python prepare_dataset.py --summary
+
+# Optional: Convert BDD100K JSON annotations to YOLO format
 python prepare_dataset.py --mode bdd100k --bdd-json path/to/bdd100k_labels.json --bdd-images path/to/images/
 ```
 
