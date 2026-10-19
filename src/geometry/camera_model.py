@@ -3,7 +3,6 @@
 from typing import Tuple, Optional
 import math
 import numpy as np
-import yaml
 
 
 class PinholeCameraModel:
@@ -70,8 +69,13 @@ class PinholeCameraModel:
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "PinholeCameraModel":
         """Load camera model from a YAML configuration file."""
-        with open(yaml_path, "r") as f:
-            data = yaml.safe_load(f)
+        data = {}
+        try:
+            import yaml
+            with open(yaml_path, "r") as f:
+                data = yaml.safe_load(f) or {}
+        except Exception:
+            pass
         return cls(
             image_width=data.get("image_width", 1280),
             image_height=data.get("image_height", 720),

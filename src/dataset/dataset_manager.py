@@ -10,7 +10,6 @@ from typing import Dict, List, Tuple, Optional, Any
 import os
 import json
 import random
-import yaml
 import cv2
 import numpy as np
 
@@ -45,8 +44,22 @@ class DatasetManager:
             "names": {i: name for i, name in enumerate(self.CLASSES)},
         }
 
-        with open(yaml_path, "w") as f:
-            yaml.dump(data, f, sort_keys=False)
+        try:
+            import yaml
+            with open(yaml_path, "w") as f:
+                yaml.dump(data, f, sort_keys=False)
+        except ImportError:
+            # Fallback formatting when PyYAML is not yet installed
+            lines = [
+                f"path: {os.path.abspath(self.output_dir)}",
+                "train: images/train",
+                "val: images/val",
+                "names:",
+            ]
+            for i, name in enumerate(self.CLASSES):
+                lines.append(f"  {i}: {name}")
+            with open(yaml_path, "w") as f:
+                f.write("\n".join(lines) + "\n")
         return yaml_path
 
     def convert_bdd100k_to_yolo(
