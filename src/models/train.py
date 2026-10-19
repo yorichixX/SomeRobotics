@@ -40,6 +40,14 @@ def train_model(
             "ultralytics is not installed. Run 'pip install ultralytics' on the workstation."
         )
 
+    import torch
+    if device != "cpu" and not torch.cuda.is_available():
+        print(f"\n[WARNING] CUDA device '{device}' requested, but PyTorch is CPU-only (version: {torch.__version__}).")
+        print("[INFO] Falling back to device='cpu' so training can proceed.")
+        print("[TIP] To enable your NVIDIA GPU, run:")
+        print("      pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124 --force-reinstall\n")
+        device = "cpu"
+
     print("=" * 60)
     print(f"Starting Transfer Learning for Robotics Navigation")
     print(f"Base Model: {model_name}")
