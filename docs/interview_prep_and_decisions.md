@@ -92,8 +92,13 @@ Comprehensive reference guide written in **Simplified Technical English (~80% AS
 ### Roadblock 5: Barrier Sample Scarcity & High Intra-Class Variance
 * **Situation:** In the raw dataset, only 50 barrier instances existed in validation, and only 236 unique barrier images existed in training. Even with $3\times$ oversampling ($1{,}293$ train instances), barrier mAP@50 reached $0.150$ while recall doubled from $12\%$ to $27.3\%$.
 * **Task:** Diagnose why barrier precision plateaued while cone precision reached $52.9\%$ and mAP reached $0.615$.
-* **Action:** Conducted intra-class variance analysis. Discovered that the 236 barrier images contained 4 visually distinct subclasses: red/white plastic Jersey barriers, concrete blocks, yellow metal construction fences, and folding A-frame barriers. Cones, in contrast, have a uniform geometric silhouette and color scheme.
-* **Result:** Identified that more training epochs on the same 236 images causes memorization (overfitting). Sourced 2 additional barrier datasets, expanding unique physical barrier images from 236 to 1,284 ($>5\times$ increase) and annotations to 2,299 without synthetic repetition.
+* **Action:** Conducted intra-class variance analysis. Discovered that the 236 barrier images contained 4 visually distinct subclasses: red/white plastic Jersey barriers, concrete blocks, yellow metal construction fences, and folding A-frame barriers. Sourced 2 additional barrier datasets, expanding unique physical barrier images from 236 to 1,284 ($>5\times$ increase) and total barrier annotations to 2,299 without synthetic repetition.
+* **Result:** Training on this authentic multi-barrier distribution produced an extraordinary performance leap:
+  * Barrier Precision surged from $26.8\%$ to **$73.9\%$** ($+175\%$ relative gain).
+  * Barrier Recall jumped from $23.0\%$ to **$55.3\%$** ($+140\%$ relative gain).
+  * Barrier mAP@50 surged from $0.150$ to **$0.647$** (**$+331\%$ relative gain**).
+  * Barrier mAP@50-95 skyrocketed from $0.052$ to **$0.438$** (**nearly $8\times$ gain**).
+  * Overall detector mAP@50 reached **$0.603$** at $1.0\text{ ms}$ inference time on the RTX 4090.
 
 ---
 
