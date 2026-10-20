@@ -170,7 +170,7 @@ class CleanDatasetMerger:
             if not os.path.exists(src_lbl):
                 continue
 
-            # Read and keep ONLY valid stop sign lines, remap to class 2
+            # Read and keep ONLY valid stop sign lines, remap to class 2, and sanitize geometry
             remapped_lines = []
             with open(src_lbl, "r") as f:
                 for line in f:
@@ -179,7 +179,11 @@ class CleanDatasetMerger:
                         try:
                             cid = int(parts[0])
                             if cid in valid_stop_ids:
-                                remapped_lines.append(f"2 {parts[1]} {parts[2]} {parts[3]} {parts[4]}")
+                                xc, yc, w, h = float(parts[1]), float(parts[2]), float(parts[3]), float(parts[4])
+                                cleaned = self._sanitize_bbox(xc, yc, w, h)
+                                if cleaned:
+                                    c_xc, c_yc, c_w, c_h = cleaned
+                                    remapped_lines.append(f"2 {c_xc:.6f} {c_yc:.6f} {c_w:.6f} {c_h:.6f}")
                         except ValueError:
                             pass
 
@@ -225,6 +229,24 @@ class CleanDatasetMerger:
 
         print(f"  Extracted {count} images from {os.path.basename(folder_path)} ({split_name}) -> {target_split}")
 
+    def _sanitize_bbox(self, xc: float, yc: float, w: float, h: float, min_dim: float = 0.005):
+        """Clamps coordinates to [0.0, 1.0] and filters degenerate zero-area boxes."""
+        xmin = max(0.0, min(1.0, xc - w / 2.0))
+        ymin = max(0.0, min(1.0, yc - h / 2.0))
+        xmax = max(0.0, min(1.0, xc + w / 2.0))
+        ymax = max(0.0, min(1.0, yc + h / 2.0))
+
+        new_w = xmax - xmin
+        new_h = ymax - ymin
+        if new_w < min_dim or new_h < min_dim:
+            return None
+
+        new_xc = max(0.0001, min(0.9999, xmin + new_w / 2.0))
+        new_yc = max(0.0001, min(0.9999, ymin + new_h / 2.0))
+        new_w = max(0.0001, min(1.0, new_w))
+        new_h = max(0.0001, min(1.0, new_h))
+        return new_xc, new_yc, new_w, new_h
+
     def _remap_lines(self, lbl_path: str, allowed_classes: Set[int] = None, new_class_id: int = 0) -> List[str]:
         out = []
         with open(lbl_path, "r") as f:
@@ -234,7 +256,11 @@ class CleanDatasetMerger:
                     try:
                         cid = int(parts[0])
                         if allowed_classes is None or cid in allowed_classes:
-                            out.append(f"{new_class_id} {parts[1]} {parts[2]} {parts[3]} {parts[4]}")
+                            xc, yc, w, h = float(parts[1]), float(parts[2]), float(parts[3]), float(parts[4])
+                            cleaned = self._sanitize_bbox(xc, yc, w, h)
+                            if cleaned:
+                                c_xc, c_yc, c_w, c_h = cleaned
+                                out.append(f"{new_class_id} {c_xc:.6f} {c_yc:.6f} {c_w:.6f} {c_h:.6f}")
                     except ValueError:
                         pass
         return out
