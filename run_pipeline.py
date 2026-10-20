@@ -132,9 +132,31 @@ def main():
     # Handle image, directory, or video
     source = args.source
     if os.path.isdir(source):
-        images = sorted(glob.glob(os.path.join(source, "*.[jJ][pP][gG]")) + glob.glob(os.path.join(source, "*.[pP][nN][gG]")))
-        if args.max_images > 0:
-            images = images[:args.max_images]
+        all_imgs = sorted(glob.glob(os.path.join(source, "*.[jJ][pP][gG]")) + glob.glob(os.path.join(source, "*.[pP][nN][gG]")))
+        if args.max_images > 0 and len(all_imgs) > args.max_images:
+            # Sample evenly across classes so all real obstacles are demonstrated
+            by_class = {"cone": [], "barrier": [], "stop": [], "other": []}
+            for p in all_imgs:
+                bname = os.path.basename(p).lower()
+                if "cone" in bname:
+                    by_class["cone"].append(p)
+                elif "barrier" in bname or "bset" in bname:
+                    by_class["barrier"].append(p)
+                elif "stop" in bname:
+                    by_class["stop"].append(p)
+                else:
+                    by_class["other"].append(p)
+
+            k = max(1, args.max_images // 3)
+            selected = by_class["cone"][:k] + by_class["barrier"][:k] + by_class["stop"][:k]
+            if len(selected) < args.max_images:
+                remaining = [p for p in all_imgs if p not in selected]
+                selected.extend(remaining[:args.max_images - len(selected)])
+            images = selected
+        else:
+            images = all_imgs
+
+        print(f"[INFO] Processing {len(images)} real validation images from: {source}")
         for img_p in images:
             out_p = os.path.join(args.output_dir, f"annotated_{os.path.basename(img_p)}")
             process_image(img_p, detector, bev_mapper, out_p)
