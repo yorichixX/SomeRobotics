@@ -110,6 +110,8 @@ def main():
     parser.add_argument("--bev", action="store_true", help="Enable Bird's-Eye View radar overlay")
     parser.add_argument("--output-dir", type=str, default="data/output", help="Directory to save output")
 
+    parser.add_argument("--max-images", type=int, default=15, help="Max images to process if source is a folder (0 for all)")
+
     args = parser.parse_args()
 
     # Initialize camera & distance estimator
@@ -130,7 +132,9 @@ def main():
     # Handle image, directory, or video
     source = args.source
     if os.path.isdir(source):
-        images = glob.glob(os.path.join(source, "*.[jJ][pP][gG]")) + glob.glob(os.path.join(source, "*.[pP][nN][gG]"))
+        images = sorted(glob.glob(os.path.join(source, "*.[jJ][pP][gG]")) + glob.glob(os.path.join(source, "*.[pP][nN][gG]")))
+        if args.max_images > 0:
+            images = images[:args.max_images]
         for img_p in images:
             out_p = os.path.join(args.output_dir, f"annotated_{os.path.basename(img_p)}")
             process_image(img_p, detector, bev_mapper, out_p)
