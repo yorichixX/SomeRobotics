@@ -1,23 +1,27 @@
 """Dataset class-balancer for robotics navigation object detection.
 
-Solves the 16:1 class imbalance between stop signs (8,904) and barriers (560).
-Creates a balanced dataset with ~1,500 images per class for optimal mAP across all classes.
+Solves:
+1. Training class imbalance (16:1 ratio between stop signs and barriers).
+2. Validation class imbalance (1,363 stop signs vs only 50 barriers).
+
+Creates a balanced training set (~1,500 per class) AND a balanced validation set (~200 per class).
 """
 
 import os
 import shutil
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 from collections import defaultdict
 
 
 def balance_yolo_dataset(
     dataset_dir: str = "data/dataset",
     output_dir: str = "data/dataset_balanced",
-    target_samples_per_class: int = 1500,
+    target_train_per_class: int = 1500,
+    target_val_per_class: int = 200,
     barrier_oversample_factor: int = 3,
 ) -> None:
-    """Create a balanced dataset with equal class representation."""
+    """Create a balanced dataset with equal class representation in BOTH train and val."""
     random.seed(42)
 
     in_img_train = os.path.join(dataset_dir, "images", "train")
@@ -30,103 +34,139 @@ def balance_yolo_dataset(
     out_img_val = os.path.join(output_dir, "images", "val")
     out_lbl_val = os.path.join(output_dir, "labels", "val")
 
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+
     for p in [out_img_train, out_lbl_train, out_img_val, out_lbl_val]:
         os.makedirs(p, exist_ok=True)
 
     print("=" * 65)
-    print("BALANCING DATASET CLASSES (CONE, BARRIER, STOP_SIGN)")
+    print("BALANCING BOTH TRAIN AND VALIDATION SETS")
     print("=" * 65)
 
-    # 1. Categorize training files by dominant class
-    class_to_files = defaultdict(list)
-    label_files = [f for f in os.listdir(in_lbl_train) if f.endswith(".txt")]
+    def index_files(lbl_dir: str, img_dir: str) -> Dict[int, List[Tuple[str, str]]]:
+        """Categorize image/label pairs by class."""
+        class_to_files = defaultdict(list)
+        label_files = [f for f in os.listdir(lbl_dir) if f.endswith(".txt")]
 
-    for lf in label_files:
-        lp = os.path.join(in_lbl_train, lf)
-        base_name = os.path.splitext(lf)[0]
+        for lf in label_files:
+            lp = os.path.join(lbl_dir, lf)
+            base_name = os.path.splitext(lf)[0]
 
-        # Find matching image
-        img_name = None
-        for ext in [".jpg", ".jpeg", ".png", ".bmp", ".webp"]:
-            candidate = f"{base_name}{ext}"
-            if os.path.exists(os.path.join(in_img_train, candidate)):
-                img_name = candidate
-                break
+            img_name = None
+            for ext in [".jpg", ".jpeg", ".png", ".bmp", ".webp"]:
+                candidate = f"{base_name}{ext}"
+                if os.path.exists(os.path.join(img_dir, candidate)):
+                    img_name = candidate
+                    break
 
-        if not img_name:
-            continue
+            if not img_name:
+                continue
 
-        # Inspect classes in label file
-        classes_in_file = set()
-        with open(lp, "r") as f:
-            for line in f:
-                parts = line.strip().split()
-                if parts:
-                    try:
-                        classes_in_file.add(int(parts[0]))
-                    except ValueError:
-                        pass
+            classes_in_file: Set[int] = set()
+            with open(lp, "r") as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if parts:
+                        try:
+                            classes_in_file.add(int(parts[0]))
+                        except ValueError:
+                            pass
 
-        # Index file by class (priority: barrier > cone > stop_sign)
-        if 1 in classes_in_file:
-            class_to_files[1].append((img_name, lf))
-        elif 0 in classes_in_file:
-            class_to_files[0].append((img_name, lf))
-        elif 2 in classes_in_file:
-            class_to_files[2].append((img_name, lf))
+            if 1 in classes_in_file:
+                class_to_files[1].append((img_name, lf))
+            elif 0 in classes_in_file:
+                class_to_files[0].append((img_name, lf))
+            elif 2 in classes_in_file:
+                class_to_files[2].append((img_name, lf))
 
-    print(f"Original Training Files Indexed:")
-    print(f"  - Class 0 (Cone):      {len(class_to_files[0])} files")
-    print(f"  - Class 1 (Barrier):   {len(class_to_files[1])} files")
-    print(f"  - Class 2 (Stop Sign): {len(class_to_files[2])} files")
+        return class_to_files
 
-    # 2. Select balanced subset
-    # Cones: take all (~1,470)
-    selected_cones = class_to_files[0][:target_samples_per_class]
+    train_files = index_files(in_lbl_train, in_img_train)
+    val_files = index_files(in_lbl_val, in_img_val)
 
-    # Stop Signs: subsample to target_samples_per_class (~1,500 instead of 8,900)
-    selected_stops = random.sample(class_to_files[2], min(target_samples_per_class, len(class_to_files[2])))
+    print(f"Original Raw Counts:")
+    print(f"  Train: Cone={len(train_files[0])}, Barrier={len(train_files[1])}, StopSign={len(train_files[2])}")
+    print(f"  Val:   Cone={len(val_files[0])}, Barrier={len(val_files[1])}, StopSign={len(val_files[2])}")
 
-    # Barriers: take all, then duplicate with copy prefix to reach target
-    selected_barriers = []
-    base_barriers = class_to_files[1]
+    # ==========================================
+    # 1. BALANCE VALIDATION SET
+    # ==========================================
+    # Cones in val: keep all (~212)
+    val_cones = val_files[0]
+
+    # Barriers in val: original only had 50!
+    # Take 100 unique barrier images from original train pool and add them to val:
+    random.shuffle(train_files[1])
+    extra_val_barriers = train_files[1][:100]
+    remaining_train_barriers = train_files[1][100:]
+
+    val_barriers = val_files[1] + extra_val_barriers
+
+    # Stop Signs in val: subsample from 1,363 to ~250
+    val_stops = random.sample(val_files[2], min(target_val_per_class + 50, len(val_files[2])))
+
+    print(f"\nBalanced Validation Plan:")
+    print(f"  - Cones:      {len(val_cones)} images")
+    print(f"  - Barriers:   {len(val_barriers)} images (50 original + 100 transferred from train pool)")
+    print(f"  - Stop Signs: {len(val_stops)} images (subsampled from {len(val_files[2])})")
+
+    # ==========================================
+    # 2. BALANCE TRAINING SET
+    # ==========================================
+    # Cones in train: ~1,470
+    train_cones = train_files[0][:target_train_per_class]
+
+    # Stop signs in train: subsample to target_train_per_class (~1,500)
+    train_stops = random.sample(train_files[2], min(target_train_per_class, len(train_files[2])))
+
+    # Barriers in train: remaining unique barriers (~460) duplicated 3x to reach ~1,380
+    train_barriers = []
     for rep in range(barrier_oversample_factor):
-        for img_name, lbl_name in base_barriers:
-            selected_barriers.append((img_name, lbl_name, rep))
+        for img_name, lbl_name in remaining_train_barriers:
+            train_barriers.append((img_name, lbl_name, rep))
 
     print(f"\nBalanced Training Plan:")
-    print(f"  - Cones:      {len(selected_cones)} images")
-    print(f"  - Barriers:   {len(selected_barriers)} images ({len(base_barriers)} unique x {barrier_oversample_factor})")
-    print(f"  - Stop Signs: {len(selected_stops)} images (subsampled from {len(class_to_files[2])})")
+    print(f"  - Cones:      {len(train_cones)} images")
+    print(f"  - Barriers:   {len(train_barriers)} images ({len(remaining_train_barriers)} unique x {barrier_oversample_factor})")
+    print(f"  - Stop Signs: {len(train_stops)} images (subsampled from {len(train_files[2])})")
 
-    # 3. Copy to destination
-    def copy_file_pair(src_img_name, src_lbl_name, dst_img_dir, dst_lbl_dir, prefix=""):
-        base_name, ext = os.path.splitext(src_img_name)
-        dst_img_name = f"{prefix}{src_img_name}" if prefix else src_img_name
-        dst_lbl_name = f"{prefix}{src_lbl_name}" if prefix else src_lbl_name
+    # ==========================================
+    # 3. WRITE TO DESTINATION
+    # ==========================================
+    def copy_pair(src_img_dir, src_lbl_dir, img_name, lbl_name, dst_img_dir, dst_lbl_dir, prefix=""):
+        dst_img_name = f"{prefix}{img_name}" if prefix else img_name
+        dst_lbl_name = f"{prefix}{lbl_name}" if prefix else lbl_name
+        shutil.copy2(os.path.join(src_img_dir, img_name), os.path.join(dst_img_dir, dst_img_name))
+        shutil.copy2(os.path.join(src_lbl_dir, lbl_name), os.path.join(dst_lbl_dir, dst_lbl_name))
 
-        shutil.copy2(os.path.join(in_img_train, src_img_name), os.path.join(dst_img_dir, dst_img_name))
-        shutil.copy2(os.path.join(in_lbl_train, src_lbl_name), os.path.join(dst_lbl_dir, dst_lbl_name))
+    # Write training files
+    for img, lbl in train_cones:
+        copy_pair(in_img_train, in_lbl_train, img, lbl, out_img_train, out_lbl_train)
 
-    for img, lbl in selected_cones:
-        copy_file_pair(img, lbl, out_img_train, out_lbl_train)
+    for img, lbl in train_stops:
+        copy_pair(in_img_train, in_lbl_train, img, lbl, out_img_train, out_lbl_train)
 
-    for img, lbl in selected_stops:
-        copy_file_pair(img, lbl, out_img_train, out_lbl_train)
-
-    for img, lbl, rep in selected_barriers:
+    for img, lbl, rep in train_barriers:
         pfx = f"rep{rep}_" if rep > 0 else ""
-        copy_file_pair(img, lbl, out_img_train, out_lbl_train, prefix=pfx)
+        copy_pair(in_img_train, in_lbl_train, img, lbl, out_img_train, out_lbl_train, prefix=pfx)
 
-    # 4. Copy validation set (preserve complete ground truth)
-    val_imgs = os.listdir(in_img_val)
-    for vf in val_imgs:
-        shutil.copy2(os.path.join(in_img_val, vf), os.path.join(out_img_val, vf))
-    val_lbls = os.listdir(in_lbl_val)
-    for vl in val_lbls:
-        shutil.copy2(os.path.join(in_lbl_val, vl), os.path.join(out_lbl_val, vl))
+    # Write validation files
+    for img, lbl in val_cones:
+        copy_pair(in_img_val, in_lbl_val, img, lbl, out_img_val, out_lbl_val)
 
-    # 5. Write dataset.yaml
+    for img, lbl in val_stops:
+        copy_pair(in_img_val, in_lbl_val, img, lbl, out_img_val, out_lbl_val)
+
+    # Base val barriers (from in_img_val)
+    for img, lbl in val_files[1]:
+        copy_pair(in_img_val, in_lbl_val, img, lbl, out_img_val, out_lbl_val)
+
+    # Extra val barriers (transferred from in_img_train)
+    for img, lbl in extra_val_barriers:
+        copy_pair(in_img_train, in_lbl_train, img, lbl, out_img_val, out_lbl_val, prefix="extraval_")
+
+    # Write dataset.yaml
     yaml_path = os.path.join(output_dir, "dataset.yaml")
     abs_out = os.path.abspath(output_dir).replace("\\", "/")
     content = f"""path: {abs_out}
@@ -153,7 +193,8 @@ def main():
     balance_yolo_dataset(
         dataset_dir="data/dataset",
         output_dir="data/dataset_balanced",
-        target_samples_per_class=1500,
+        target_train_per_class=1500,
+        target_val_per_class=200,
         barrier_oversample_factor=3,
     )
 
