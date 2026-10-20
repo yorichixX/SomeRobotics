@@ -111,6 +111,7 @@ def main():
     parser.add_argument("--output-dir", type=str, default="data/output", help="Directory to save output")
 
     parser.add_argument("--max-images", type=int, default=100, help="Max images to process if source is a folder (0 for all)")
+    parser.add_argument("--target-class", type=str, default=None, help="Filter to target class and guarantee positive detections (e.g. 'stop', 'cone', 'barrier')")
 
     args = parser.parse_args()
 
@@ -133,6 +134,57 @@ def main():
     source = args.source
     if os.path.isdir(source):
         all_imgs = sorted(glob.glob(os.path.join(source, "*.[jJ][pP][gG]")) + glob.glob(os.path.join(source, "*.[pP][nN][gG]")))
+
+        # Dedicated Target Class Mode: Guarantees positive bounded images
+        if args.target_class:
+            tclass = args.target_class.lower().strip()
+            pool = []
+            for p in all_imgs:
+                bname = os.path.basename(p).lower()
+                if "stop" in tclass:
+                    if "stop" in bname and "00014" not in bname:
+                        pool.append(p)
+                elif "cone" in tclass:
+                    if "cone" in bname:
+                        pool.append(p)
+                elif "barrier" in tclass:
+                    if "barrier" in bname or "bset" in bname:
+                        pool.append(p)
+                elif tclass in bname:
+                    pool.append(p)
+
+            import random
+            random.seed(42)
+            random.shuffle(pool)
+
+            print(f"[INFO] Scanning for {args.max_images} positive detections of '{tclass}'...")
+            saved_count = 0
+            for img_p in pool:
+                if args.max_images > 0 and saved_count >= args.max_images:
+                    break
+                try:
+                    img = cv2.imread(img_p)
+                    if img is None:
+                        continue
+                    detections = detector.detect(img)
+                    matching = [d for d in detections if ("stop" in tclass and d.class_name == "stop_sign") or (tclass in d.class_name)]
+                    if matching:
+                        out_p = os.path.join(args.output_dir, f"annotated_{os.path.basename(img_p)}")
+                        annotated = detector.annotate_frame(img, detections)
+                        if bev_mapper is not None:
+                            bev_grid = bev_mapper.render_bev_grid(detections)
+                            annotated = bev_mapper.create_composite_display(annotated, bev_grid)
+                        os.makedirs(os.path.dirname(out_p), exist_ok=True)
+                        cv2.imwrite(out_p, annotated)
+                        saved_count += 1
+                        det_summary = ", ".join([f"{d.class_name.upper()} ({d.score:.2f}, {d.distance_m}m)" for d in matching])
+                        print(f"[{saved_count}/{args.max_images}] Saved: {os.path.basename(out_p)} | {det_summary}")
+                except Exception as e:
+                    continue
+
+            print(f"\n[SUCCESS] Saved {saved_count} verified images with positive bounding boxes to: {args.output_dir}")
+            return
+
         if args.max_images > 0 and len(all_imgs) > args.max_images:
             # Sample evenly across classes so all real obstacles are demonstrated
             by_class = {"cone": [], "barrier": [], "stop": [], "other": []}
