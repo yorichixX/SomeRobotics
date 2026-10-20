@@ -9,8 +9,8 @@ def main():
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["download", "roboflow", "synthetic", "bdd100k", "summary"],
-        default="download",
+        choices=["download", "roboflow", "synthetic", "bdd100k", "summary", "merge"],
+        default="merge",
         help="Dataset preparation mode",
     )
     parser.add_argument("--url", type=str, default=None, help="Direct URL to dataset zip archive")
@@ -71,6 +71,11 @@ def main():
         dm.write_dataset_yaml()
         print(f"Done! Converted {count} labeled images to YOLO format.")
         dm.inspect_and_summarize()
+
+    elif args.mode == "merge":
+        from merge_roboflow_datasets import DatasetMerger
+        merger = DatasetMerger(data_root="data", output_dir=args.output_dir)
+        merger.run_merge(clean_existing=True)
 
 
 if __name__ == "__main__":
