@@ -52,6 +52,9 @@ class ModelPruner:
         sparsity_before = self.calculate_sparsity(model)
         pruned_layer_count = 0
 
+        import copy
+        model = copy.deepcopy(model)
+
         # Apply L1 unstructured pruning to Conv2d layers
         for name, module in model.named_modules():
             if isinstance(module, nn.Conv2d):

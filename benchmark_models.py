@@ -59,7 +59,33 @@ def run_benchmarks(
 
     # Prepare pruned model
     pruned_path = "weights/detector_pruned_30.pt"
-    pruner.prune_l1_unstructured(model_path, amount=0.30, output_pruned_path=pruned_path)
+    try:
+        pruner.prune_l1_unstructured(model_path, amount=0.30, output_pruned_path=pruned_path)
+    except Exception as e:
+        print(f"[WARNING] Pruning failed: {e}")
+        pruned_path = None
+
+    # Export ONNX FP32 model
+    base_name = os.path.splitext(os.path.basename(model_path))[0]
+    onnx_fp32_path = os.path.join("weights", f"{base_name}.onnx")
+    onnx_int8_path = os.path.join("weights", f"{base_name}_int8.onnx")
+
+    if not os.path.exists(onnx_fp32_path):
+        print(f"\n[INFO] Exporting model to ONNX FP32 format: {onnx_fp32_path}...")
+        try:
+            onnx_fp32_path = quantizer.export_to_onnx(model_path, output_onnx_path=onnx_fp32_path, imgsz=640)
+        except Exception as e:
+            print(f"[WARNING] ONNX export failed: {e}")
+            onnx_fp32_path = None
+
+    # Quantize to INT8
+    if onnx_fp32_path and os.path.exists(onnx_fp32_path) and not os.path.exists(onnx_int8_path):
+        print(f"\n[INFO] Applying INT8 Dynamic Quantization: {onnx_int8_path}...")
+        try:
+            onnx_int8_path = quantizer.quantize_onnx_dynamic(onnx_fp32_path, output_quantized_path=onnx_int8_path)
+        except Exception as e:
+            print(f"[WARNING] INT8 quantization failed: {e}")
+            onnx_int8_path = None
 
     results = []
 
@@ -98,14 +124,35 @@ def run_benchmarks(
                 print(f"  Skipped PyTorch FP16 ({e})")
 
         # 3. Pruned PyTorch model
-        print(f"Testing Pruned Model on {dev.upper()}...")
-        try:
-            res_pruned = benchmark_runner.benchmark_pytorch(pruned_path, device=dev, half=False)
-            res_pruned["format"] = "PyTorch Pruned (30%)"
-            results.append(res_pruned)
-            print(f"  Result: {res_pruned['mean_latency_ms']} ms ({res_pruned['fps']} FPS)")
-        except Exception as e:
-            print(f"  Skipped Pruned ({e})")
+        if pruned_path and os.path.exists(pruned_path):
+            print(f"Testing Pruned Model on {dev.upper()}...")
+            try:
+                res_pruned = benchmark_runner.benchmark_pytorch(pruned_path, device=dev, half=False)
+                res_pruned["format"] = "PyTorch Pruned (30%)"
+                results.append(res_pruned)
+                print(f"  Result: {res_pruned['mean_latency_ms']} ms ({res_pruned['fps']} FPS)")
+            except Exception as e:
+                print(f"  Skipped Pruned ({e})")
+
+        # 4. ONNX FP32
+        if onnx_fp32_path and os.path.exists(onnx_fp32_path):
+            print(f"Testing ONNX FP32 on {dev.upper()}...")
+            try:
+                res_onnx_fp32 = benchmark_runner.benchmark_onnx(onnx_fp32_path, device=dev)
+                results.append(res_onnx_fp32)
+                print(f"  Result: {res_onnx_fp32['mean_latency_ms']} ms ({res_onnx_fp32['fps']} FPS)")
+            except Exception as e:
+                print(f"  Skipped ONNX FP32 on {dev.upper()} ({e})")
+
+        # 5. ONNX INT8 (CPU edge optimization)
+        if dev == "cpu" and onnx_int8_path and os.path.exists(onnx_int8_path):
+            print(f"Testing ONNX INT8 Dynamic on CPU...")
+            try:
+                res_onnx_int8 = benchmark_runner.benchmark_onnx(onnx_int8_path, device="cpu")
+                results.append(res_onnx_int8)
+                print(f"  Result: {res_onnx_int8['mean_latency_ms']} ms ({res_onnx_int8['fps']} FPS)")
+            except Exception as e:
+                print(f"  Skipped ONNX INT8 ({e})")
 
     # Generate report
     report = benchmark_runner.generate_markdown_report(results, output_report_path=output_report)

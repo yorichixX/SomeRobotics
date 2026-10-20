@@ -1,14 +1,15 @@
 # Edge Device Optimization Benchmark Report
 
-**Iterations:** 30 runs (after 5 warm-up runs)
+**Iterations:** 5 runs (after 2 warm-up runs)
 **Input Resolution:** 640x640
 
 | Model / Checkpoint | Format | Target Device | Mean Latency (ms) | P95 Latency (ms) | FPS | Model Size (MB) |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| `detector_baseline.pt` | PyTorch FP32 | **CPU** | 21.53 ± 2.62 | 25.65 | **46.3** | 0.4 MB |
-| `detector_pruned_30.pt` | PyTorch Pruned (30%) | **CPU** | 20.86 ± 1.89 | 23.49 | **47.8** | 0.4 MB |
-| `detector_baseline.pt` | PyTorch FP32 | **CUDA** | 0.94 ± 0.44 | 2.04 | **975.0** | 0.4 MB |
-| `detector_pruned_30.pt` | PyTorch Pruned (30%) | **CUDA** | 0.9 ± 0.32 | 1.61 | **1016.9** | 0.4 MB |
+| `detector_baseline.pt` | PyTorch FP32 | **CPU** | 17.16 Â± 1.26 | 18.78 | **58.2** | 0.4 MB |
+| `detector_pruned_30.pt` | PyTorch Pruned (30%) | **CPU** | 18.31 Â± 2.76 | 22.44 | **54.6** | 0.4 MB |
+| `detector_baseline.pt` | PyTorch FP32 | **CUDA** | 0.73 Â± 0.17 | 0.98 | **1022.6** | 0.4 MB |
+| `detector_baseline.pt` | PyTorch FP16 | **CUDA** | 0.72 Â± 0.29 | 1.08 | **1304.3** | 0.4 MB |
+| `detector_pruned_30.pt` | PyTorch Pruned (30%) | **CUDA** | 0.67 Â± 0.11 | 0.83 | **1019.2** | 0.4 MB |
 
 ## Key Takeaways
 1. **Quantization Impact (FP32 vs INT8):** INT8 quantization provides ~75% reduction in model disk footprint and significant latency reduction on CPU edge devices.

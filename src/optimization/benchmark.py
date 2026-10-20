@@ -28,45 +28,51 @@ class EdgeBenchmark:
         half: bool = False,
     ) -> Dict[str, Any]:
         """Benchmark a PyTorch / YOLO model on CPU or GPU."""
+        dev = torch.device(device)
         try:
             from ultralytics import YOLO
-            model = YOLO(model_path)
+            yolo_obj = YOLO(model_path)
+            net = yolo_obj.model
         except Exception:
-            # Fallback direct torch model
-            checkpoint = torch.load(model_path, map_location=device, weights_only=False)
-            model = checkpoint["model"] if isinstance(checkpoint, dict) and "model" in checkpoint else checkpoint
+            checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
+            net = checkpoint["model"] if isinstance(checkpoint, dict) and "model" in checkpoint else checkpoint
 
-        dev = torch.device(device)
+        if hasattr(net, "to"):
+            net = net.to(dev)
+        if hasattr(net, "eval"):
+            net.eval()
+
         dummy_tensor = torch.randn(1, 3, self.imgsz, self.imgsz, device=dev)
         if half and device == "cuda":
-            if hasattr(model, "half"):
-                model = model.half()
+            if hasattr(net, "half"):
+                net = net.half()
             dummy_tensor = dummy_tensor.half()
 
         # Warmup
-        for _ in range(self.num_warmup):
-            _ = model(dummy_tensor) if hasattr(model, "__call__") else model.predict(dummy_tensor, verbose=False)
+        with torch.no_grad():
+            for _ in range(self.num_warmup):
+                _ = net(dummy_tensor)
 
-        if device == "cuda":
-            torch.cuda.synchronize()
-
-        latencies_ms = []
-        start_total = time.perf_counter()
-
-        for _ in range(self.num_runs):
-            t0 = time.perf_counter()
             if device == "cuda":
-                starter = torch.cuda.Event(enable_timing=True)
-                ender = torch.cuda.Event(enable_timing=True)
-                starter.record()
-                _ = model(dummy_tensor) if hasattr(model, "__call__") else model.predict(dummy_tensor, verbose=False)
-                ender.record()
                 torch.cuda.synchronize()
-                latencies_ms.append(starter.elapsed_time(ender))
-            else:
-                _ = model(dummy_tensor) if hasattr(model, "__call__") else model.predict(dummy_tensor, verbose=False)
-                t1 = time.perf_counter()
-                latencies_ms.append((t1 - t0) * 1000.0)
+
+            latencies_ms = []
+            start_total = time.perf_counter()
+
+            for _ in range(self.num_runs):
+                if device == "cuda":
+                    starter = torch.cuda.Event(enable_timing=True)
+                    ender = torch.cuda.Event(enable_timing=True)
+                    starter.record()
+                    _ = net(dummy_tensor)
+                    ender.record()
+                    torch.cuda.synchronize()
+                    latencies_ms.append(starter.elapsed_time(ender))
+                else:
+                    t0 = time.perf_counter()
+                    _ = net(dummy_tensor)
+                    t1 = time.perf_counter()
+                    latencies_ms.append((t1 - t0) * 1000.0)
 
         total_time_s = time.perf_counter() - start_total
         fps = self.num_runs / total_time_s
@@ -104,11 +110,11 @@ class EdgeBenchmark:
         input_name = session.get_inputs()[0].name
         input_shape = session.get_inputs()[0].shape
 
-        # Handle dynamic dimensions
+        # Handle dynamic dimensions safely
         batch = 1
         c = 3
-        h = self.imgsz if isinstance(input_shape[2], str) else input_shape[2]
-        w = self.imgsz if isinstance(input_shape[3], str) else input_shape[3]
+        h = self.imgsz if (len(input_shape) <= 2 or input_shape[2] is None or isinstance(input_shape[2], str)) else int(input_shape[2])
+        w = self.imgsz if (len(input_shape) <= 3 or input_shape[3] is None or isinstance(input_shape[3], str)) else int(input_shape[3])
 
         dummy_input = np.random.randn(batch, c, h, w).astype(np.float32)
 
@@ -116,12 +122,17 @@ class EdgeBenchmark:
         for _ in range(self.num_warmup):
             _ = session.run(None, {input_name: dummy_input})
 
+        if device == "cuda" and torch.cuda.is_available():
+            torch.cuda.synchronize()
+
         latencies_ms = []
         start_total = time.perf_counter()
 
         for _ in range(self.num_runs):
             t0 = time.perf_counter()
             _ = session.run(None, {input_name: dummy_input})
+            if device == "cuda" and torch.cuda.is_available():
+                torch.cuda.synchronize()
             t1 = time.perf_counter()
             latencies_ms.append((t1 - t0) * 1000.0)
 
@@ -179,7 +190,7 @@ class EdgeBenchmark:
         ])
 
         report_content = "\n".join(lines)
-        with open(output_report_path, "w") as f:
+        with open(output_report_path, "w", encoding="utf-8") as f:
             f.write(report_content)
 
         print(f"\n[REPORT] Benchmark report written to: {output_report_path}")

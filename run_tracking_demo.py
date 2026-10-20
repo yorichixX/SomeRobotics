@@ -69,6 +69,7 @@ def generate_synthetic_moving_video(
 def main():
     parser = argparse.ArgumentParser(description="Run Optical Flow Tracking on Navigation Objects")
     parser.add_argument("--video", type=str, default=None, help="Input video file path")
+    parser.add_argument("--model", type=str, default="weights/best.pt", help="Path to object detector model weights")
     parser.add_argument("--output", type=str, default="data/output/tracked_flow_demo.mp4", help="Output video path")
 
     args = parser.parse_args()
@@ -79,7 +80,8 @@ def main():
         video_path = generate_synthetic_moving_video()
 
     tracker = OpticalFlowTracker()
-    detector = ObjectDetector(model_path=None)
+    model_to_use = args.model if (args.model and os.path.exists(args.model)) else None
+    detector = ObjectDetector(model_path=model_to_use)
 
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -97,6 +99,9 @@ def main():
             break
 
         detections = detector.detect(frame)
+        if len(detections) == 0 and args.video is None:
+            detections = detector._heuristic_fallback_detect(frame)
+
         annotated_frame = detector.annotate_frame(frame, detections)
         tracked_frame, stats = tracker.update(annotated_frame, detections)
 
