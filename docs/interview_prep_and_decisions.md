@@ -36,6 +36,22 @@ Comprehensive reference guide written in **Simplified Technical English (~80% AS
 
 ---
 
+### Decision 4: Training Dynamics — Early Stopping & Cosine Annealing
+* **Question you will get in interview:** *"How did you manage training convergence and prevent overfitting?"*
+* **Answer / Rationale:**
+  1. **Validation Fitness Monitoring:** Rather than training for fixed arbitrary epochs, we implemented early stopping with `--patience 20`. This monitors validation mAP (fitness), automatically halting training when test performance plateaus.
+  2. **Cosine Learning Rate Decay (`cos_lr=True`):** Replaced step decay with a smooth cosine schedule. Cosine annealing avoids sharp gradient shocks, allowing the optimizer to settle smoothly into narrow loss basins.
+
+---
+
+### Decision 5: Data-Centric AI — Expanding Real Data vs. Synthetic Repetition
+* **Question you will get in interview:** *"When barrier accuracy hit a bottleneck, why did you expand the dataset instead of tuning hyperparameters?"*
+* **Answer / Rationale:**
+  1. **Empirical Generalization Limit:** Training 75 epochs on 236 unique barrier images repeated $3\times$ caused the network to memorize training images. Training loss dropped by $34\%$, but validation mAP plateaued at $0.15$.
+  2. **Data-Centric Solution:** Neural network capacity cannot invent missing physical features. Adding 2 diverse external barrier datasets expanded unique physical images from 236 to 1,284 ($>5\times$ increase). This eliminated the need for synthetic oversampling and exposed the detector to authentic intra-class variations (concrete, plastic, water-filled).
+
+---
+
 ## 2. Roadblocks Faced and Solutions (STAR Format for Interviews)
 
 ### Roadblock 1: BDD100K Class Gap (Cones and Barriers Missing)
@@ -77,11 +93,27 @@ Comprehensive reference guide written in **Simplified Technical English (~80% AS
 * **Situation:** In the raw dataset, only 50 barrier instances existed in validation, and only 236 unique barrier images existed in training. Even with $3\times$ oversampling ($1{,}293$ train instances), barrier mAP@50 reached $0.150$ while recall doubled from $12\%$ to $27.3\%$.
 * **Task:** Diagnose why barrier precision plateaued while cone precision reached $52.9\%$ and mAP reached $0.615$.
 * **Action:** Conducted intra-class variance analysis. Discovered that the 236 barrier images contained 4 visually distinct subclasses: red/white plastic Jersey barriers, concrete blocks, yellow metal construction fences, and folding A-frame barriers. Cones, in contrast, have a uniform geometric silhouette and color scheme.
-* **Result / Key Insight:** Identified that simply training for more epochs on the same 236 images causes memorization (overfitting) rather than generalization. In an autonomous robotics production pipeline, the correct engineering solution is targeted active-learning data collection for barriers rather than prolonged training epochs.
+* **Result:** Identified that more training epochs on the same 236 images causes memorization (overfitting). Sourced 2 additional barrier datasets, expanding unique physical barrier images from 236 to 1,284 ($>5\times$ increase) and annotations to 2,299 without synthetic repetition.
 
 ---
 
-### Roadblock 6: Python 3.13 & CPU-Only PyTorch Build
+### Roadblock 6: Multi-Dataset Class Schema Inconsistencies (`'0'` vs `'Barrier'`)
+* **Situation:** When downloading the new barrier dataset (`Barrier.v2i(1)`), `data.yaml` listed two classes: `['0', 'Barrier']`. Class `0` contained $1{,}112$ bounding boxes, while `Barrier` contained only $75$.
+* **Task:** Determine whether Class `0` contained corrupted labels (like digits or text) or genuine barriers.
+* **Action:** Built `inspect_new_barriers.py` to calculate dataset overlap and generate visual preview crops. The visual audit proved that both Class `0` and Class `1` were genuine water-filled barriers whose original class name had defaulted to `'0'` during Roboflow upload.
+* **Result:** Safely mapped both IDs into unified Class 1 (`barrier`), integrating 1,187 real barrier annotations with zero label pollution.
+
+---
+
+### Roadblock 7: Human-in-the-Loop Visual Verification Safeguard
+* **Situation:** After merging multiple heterogeneous datasets, there was a risk of silent annotation misalignment (e.g., class index inversion or inverted normalized coordinates).
+* **Task:** Establish an automated visual quality gate before committing to full model training.
+* **Action:** Developed `verify_labels_visually.py` to sample random images from each class and render explicit color-coded bounding boxes (`CONE` in green, `BARRIER` in orange, `STOP_SIGN` in blue) into `data/visual_verification/`.
+* **Result:** Enabled direct visual confirmation of ground-truth alignment across all three classes before launching training.
+
+---
+
+### Roadblock 8: Python 3.13 & CPU-Only PyTorch Build
 * **Situation:** The remote workstation environment had a default Python 3.13 install with `torch-2.14.1+cpu`. Running `train.py --device 0` failed with `ValueError: Invalid CUDA device=0`.
 * **Task:** Enable full CUDA acceleration on the NVIDIA GeForce RTX 4090 GPU.
 * **Action:** 
@@ -91,7 +123,7 @@ Comprehensive reference guide written in **Simplified Technical English (~80% AS
 
 ---
 
-### Roadblock 7: PyTorch 2.6 Weights-Only Default
+### Roadblock 9: PyTorch 2.6 Weights-Only Default
 * **Situation:** PyTorch 2.6 changed `torch.load` default to `weights_only=True`, breaking custom model loading in the pruning benchmark with `pickle.UnpicklingError`.
 * **Task:** Maintain compatibility across modern PyTorch 2.6+ releases.
 * **Action:** Refactored checkpoint loading in `src/optimization/pruner.py` and `src/optimization/benchmark.py` to explicitly pass `weights_only=False`.
@@ -101,14 +133,16 @@ Comprehensive reference guide written in **Simplified Technical English (~80% AS
 
 ## 3. High-Impact Questions You Can Expect in Your Interview
 
-1. **"How does bounding box inaccuracy affect distance estimation?"**
+1. **"Why did you stop training when training loss was still steadily decreasing?"**
+   * *Answer:* Between epoch 40 and 75, training classification loss continued to drop from 1.90 to 1.25, but validation mAP plateaued at 0.433–0.440. Training loss measures empirical risk on the training set, which will continue decreasing as the network memorizes background noise. Validation mAP measures true generalization risk. Halting training at the validation plateau (early stopping) avoids overfitting.
+2. **"How does bounding box inaccuracy affect distance estimation?"**
    * *Answer:* Distance is inversely proportional to bounding box height ($Z \propto \frac{1}{h}$). A $1\text{ pixel}$ error at close range (where $h=200\text{ px}$) has negligible impact ($<1\%$). However, at long range (where $h=10\text{ px}$), a $1\text{ pixel}$ error causes a $10\%$ error in distance. This is why ground-plane fusion is critical for distant objects.
-2. **"Why did you choose Homography for Bird's-Eye View instead of 3D point cloud reconstruction?"**
+3. **"Why did you choose Homography for Bird's-Eye View instead of 3D point cloud reconstruction?"**
    * *Answer:* For flat roads, the ground plane fulfills the planar homography assumption. A $3\times 3$ Inverse Perspective Mapping (IPM) matrix $H$ warps front pixels to metric ground coordinates at $0.2\text{ ms}$ compute cost, making it ideal for 2D occupancy grid path planning.
-3. **"How did you handle moving obstacles?"**
+4. **"How did you handle moving obstacles?"**
    * *Answer:* Implemented Lucas-Kanade optical flow (`calcOpticalFlowPyrLK`) on Shi-Tomasi corners extracted specifically inside detection bounding boxes. This calculates obstacle velocity vectors $(\Delta x, \Delta y)$ to determine whether a cone or barrier is static or moving across the robot's trajectory.
-4. **"If given more time and compute, how would you improve the barrier class performance?"**
+5. **"If given more time and compute, what would you improve next?"**
    * *Answer:* 
-     1. Collect 500+ additional unique images of diverse barrier types (metal, concrete, plastic).
-     2. Apply domain-specific augmentations: horizontal aspect ratio scaling (`scale=0.7`, `mosaic=1.0`, `copy_paste=0.3`).
-     3. Introduce an aspect-ratio-aware loss weighting or assign barriers their own specialized anchor/stride prior.
+     1. Deploy TensorRT INT8 calibration directly on Jetson hardware for sub-1ms edge latency.
+     2. Collect domain-specific video streams under night/rain conditions for dynamic lighting robustness.
+     3. Implement a Kalman filter tracker (e.g. ByteTrack) to smooth distance estimates across consecutive video frames.
