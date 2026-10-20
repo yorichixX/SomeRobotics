@@ -16,6 +16,8 @@ def train_model(
     project: str = "runs/train",
     name: str = "exp",
     weights_export_dir: str = "weights",
+    patience: int = 25,
+    cos_lr: bool = True,
 ) -> str:
     """Fine-tune pretrained YOLO model on custom dataset.
     
@@ -72,6 +74,8 @@ def train_model(
         exist_ok=True,
         save=True,
         plots=True,
+        patience=patience,
+        cos_lr=cos_lr,
     )
 
     # Locate best weights
@@ -120,6 +124,9 @@ def main():
     parser.add_argument("--project", type=str, default="runs/train", help="Run directory")
     parser.add_argument("--name", type=str, default="exp", help="Experiment name")
 
+    parser.add_argument("--patience", type=int, default=25, help="Early stopping patience (epochs without improvement)")
+    parser.add_argument("--cos-lr", action="store_true", default=True, help="Use cosine learning rate scheduler")
+
     args = parser.parse_args()
 
     train_model(
@@ -131,6 +138,8 @@ def main():
         device=args.device,
         project=args.project,
         name=args.name,
+        patience=args.patience,
+        cos_lr=args.cos_lr,
     )
 
 
