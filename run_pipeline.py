@@ -136,6 +136,9 @@ def main():
         if args.max_images > 0 and len(all_imgs) > args.max_images:
             # Sample evenly across classes so all real obstacles are demonstrated
             by_class = {"cone": [], "barrier": [], "stop": [], "other": []}
+            import random
+            random.seed(42)
+
             for p in all_imgs:
                 bname = os.path.basename(p).lower()
                 if "cone" in bname:
@@ -143,14 +146,23 @@ def main():
                 elif "barrier" in bname or "bset" in bname:
                     by_class["barrier"].append(p)
                 elif "stop" in bname:
-                    by_class["stop"].append(p)
+                    # Prefer natural street scenes over upscaled 32x32 GTSRB thumbnails (00014)
+                    if "00014" not in bname:
+                        by_class["stop"].append(p)
+                    else:
+                        by_class["other"].append(p)
                 else:
                     by_class["other"].append(p)
+
+            # Shuffle each class pool to select diverse, representative natural road scenes
+            for ckey in by_class:
+                random.shuffle(by_class[ckey])
 
             k = max(1, args.max_images // 3)
             selected = by_class["cone"][:k] + by_class["barrier"][:k] + by_class["stop"][:k]
             if len(selected) < args.max_images:
                 remaining = [p for p in all_imgs if p not in selected]
+                random.shuffle(remaining)
                 selected.extend(remaining[:args.max_images - len(selected)])
             images = selected
         else:
