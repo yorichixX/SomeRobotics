@@ -136,6 +136,22 @@ Comprehensive reference guide written in **Simplified Technical English (~80% AS
 
 ---
 
+### Roadblock 10: Dynamic INT8 Latency Inversion Paradox on CNNs
+* **Situation:** Running INT8 dynamic ONNX quantization shrank model footprint by 72.7% (12.18 MB to 3.32 MB), but CPU latency increased 7.8x (12.39 ms to 96.48 ms).
+* **Task:** Understand and explain why INT8 dynamic quantization was slower than ONNX FP32 on CPU, and establish the production mitigation.
+* **Action:** Investigated ONNX Runtime CPU kernel behavior. Discovered that dynamic quantization calculates min/max ranges across millions of activation values per frame dynamically at runtime and inserts QuantizeLinear/DequantizeLinear adapters around non-quantized nodes (SiLU, Split, DFL).
+* **Result:** Articulated the architectural rationale: dynamic quantization is engineered for memory-bound NLP models, whereas compute-bound vision CNNs require Static Post-Training Quantization (PTQ) with Calibration over representative images to eliminate runtime dynamic overhead.
+
+---
+
+### Roadblock 11: Unstructured Sparsity vs. Dense GEMM Instruction Execution
+* **Situation:** Pruning 30% of Conv2d weights via L1 unstructured pruning achieved 29.95% sparsity, but yielded negligible CPU latency improvement (30.61 ms to 30.07 ms).
+* **Task:** Demystify why 30% weight sparsity did not reduce CPU inference time by 30%.
+* **Action:** Analyzed Intel MKL / OpenBLAS matrix multiplication kernels. Because standard BLAS operates on dense contiguous arrays using SIMD vector instructions (AVX2/AVX-512), zero weights are still multiplied and accumulated ($0 \times x + \text{acc} = \text{acc}$), burning identical clock cycles. However, on the Ada Lovelace GPU (RTX 4060 Laptop), reduced memory bus traffic and L2 cache evictions delivered a 16.3% latency reduction (5.69 ms to 4.76 ms).
+* **Result:** Formulated the production roadmap: moving from unstructured pruning to Structured Channel Pruning (e.g., pruning redundant filters) physically shrinks tensor dimensions, delivering guaranteed 1.4x-1.8x speedups on standard CPU/NPU hardware without custom sparse runtimes.
+
+---
+
 ## 3. High-Impact Questions You Can Expect in Your Interview
 
 1. **"Why did you stop training when training loss was still steadily decreasing?"**
@@ -151,3 +167,7 @@ Comprehensive reference guide written in **Simplified Technical English (~80% AS
      1. Deploy TensorRT INT8 calibration directly on Jetson hardware for sub-1ms edge latency.
      2. Collect domain-specific video streams under night/rain conditions for dynamic lighting robustness.
      3. Implement a Kalman filter tracker (e.g. ByteTrack) to smooth distance estimates across consecutive video frames.
+6. **"Why was Dynamic INT8 slower than FP32 in your benchmark, and is this expected?"**
+   * *Answer:* Yes, this is an expected architectural characteristic of Convolutional Neural Networks under dynamic quantization. Dynamic quantization computes activation scale factors dynamically at runtime during every forward pass. In a 640x640 vision model, scanning millions of activation elements creates CPU memory bus bottlenecks. Furthermore, non-linear operators (SiLU, DFL) lack native INT8 kernels, forcing ONNX Runtime to continuously quantize and dequantize between layers. For production robotics, we transition to Static Post-Training Quantization (PTQ) with calibration, which fixes scales offline and executes fused INT8 operations without runtime latency penalties.
+7. **"Why did 30% unstructured pruning not speed up CPU inference by 30%?"**
+   * *Answer:* Standard CPU BLAS libraries execute dense matrix multiplication using fixed SIMD vector instructions (AVX2/AVX-512). Unless using specialized sparse runtimes (e.g. Neural Magic DeepSparse) or hardware sparse tensor cores (2:4 structured sparsity), dense BLAS computes Multiply-Accumulate operations on zeros unconditionally. To achieve true CPU/NPU speedup without specialized runtimes, Structured Channel Pruning should be applied to physically remove entire filters and reduce channel dimensions.

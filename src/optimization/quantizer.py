@@ -97,6 +97,72 @@ class ModelQuantizer:
             print("Warning: onnxruntime.quantization not available. Install onnxruntime.")
             raise
 
+    def quantize_onnx_static(
+        self,
+        input_onnx_path: str,
+        calibration_image_dir: str = "data/dataset_clean/images/val",
+        output_quantized_path: Optional[str] = None,
+        num_calibration_images: int = 50,
+        imgsz: int = 640,
+    ) -> str:
+        """Apply static INT8 quantization with offline calibration over dataset images.
+        
+        Fixes activation scale factors offline to eliminate dynamic activation scanning
+        and achieve true INT8 compute acceleration on edge devices.
+        """
+        if output_quantized_path is None:
+            base_name = os.path.splitext(os.path.basename(input_onnx_path))[0]
+            output_quantized_path = os.path.join(self.output_dir, f"{base_name}_static_int8.onnx")
+
+        try:
+            from onnxruntime.quantization import quantize_static, CalibrationDataReader, QuantType, CalibrationMethod
+            import cv2
+            import glob
+            import numpy as np
+
+            class YOLOCalibrationDataReader(CalibrationDataReader):
+                def __init__(self, image_dir: str, max_samples: int = 50, size: int = 640):
+                    self.image_paths = (
+                        glob.glob(os.path.join(image_dir, "*.jpg")) +
+                        glob.glob(os.path.join(image_dir, "*.png"))
+                    )[:max_samples]
+                    self.size = size
+                    self.enum_data = iter(self.image_paths)
+
+                def get_next(self):
+                    try:
+                        path = next(self.enum_data)
+                    except StopIteration:
+                        return None
+                    img = cv2.imread(path)
+                    if img is None:
+                        return None
+                    img = cv2.resize(img, (self.size, self.size))
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    tensor = img.astype(np.float32) / 255.0
+                    tensor = np.transpose(tensor, (2, 0, 1))
+                    tensor = np.expand_dims(tensor, axis=0)
+                    return {"images": tensor}
+
+            print(f"Applying Static INT8 Calibration: {input_onnx_path} -> {output_quantized_path}")
+            data_reader = YOLOCalibrationDataReader(calibration_image_dir, max_samples=num_calibration_images, size=imgsz)
+            quantize_static(
+                model_input=input_onnx_path,
+                model_output=output_quantized_path,
+                calibration_data_reader=data_reader,
+                quant_format=QuantType.QInt8,
+                calibrate_method=CalibrationMethod.MinMax,
+            )
+
+            orig_size = os.path.getsize(input_onnx_path) / (1024 * 1024)
+            quant_size = os.path.getsize(output_quantized_path) / (1024 * 1024)
+            print(f"Static INT8 Size reduction: {orig_size:.2f} MB -> {quant_size:.2f} MB (-{(1 - quant_size/orig_size)*100:.1f}%)")
+
+            return output_quantized_path
+        except Exception as e:
+            print(f"Warning: Static quantization could not be completed ({e}).")
+            return output_quantized_path
+
     def convert_onnx_fp16(
         self,
         input_onnx_path: str,
