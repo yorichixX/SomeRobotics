@@ -16,7 +16,7 @@ def audit_datasets(data_root: str = "data"):
     candidates = [
         d for d in os.listdir(data_root)
         if os.path.isdir(os.path.join(data_root, d))
-        and d not in ["dataset", "dataset_balanced", "output", "sample_videos", "sample_images", "bdd100k"]
+        and d not in ["dataset", "dataset_balanced", "dataset_clean", "output", "sample_videos", "sample_images", "bdd100k"]
     ]
 
     for folder in sorted(candidates):
