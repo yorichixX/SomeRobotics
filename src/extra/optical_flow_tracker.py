@@ -181,9 +181,17 @@ class OpticalFlowTracker:
         current_pts: np.ndarray,
         detections: List[Detection],
     ) -> Optional[np.ndarray]:
-        """Keep points inside active boxes and reseed if point density is low."""
+        """Keep points inside active boxes or road corridor and reseed if point density is low."""
         if not detections:
-            return None
+            if len(current_pts) < 15:
+                # Reseed road corridor
+                h, w = gray.shape[:2]
+                mask = np.zeros_like(gray)
+                mask[int(h * 0.40):int(h * 0.95), int(w * 0.10):int(w * 0.90)] = 255
+                corners = cv2.goodFeaturesToTrack(gray, mask=mask, maxCorners=40, qualityLevel=0.1, minDistance=12)
+                if corners is not None:
+                    return corners
+            return current_pts.reshape(-1, 1, 2)
 
         surviving = []
         for det in detections:
@@ -210,19 +218,29 @@ class OpticalFlowTracker:
         return None
 
     def _reseed_features(self, gray: np.ndarray, detections: List[Detection]) -> None:
-        """Seed fresh Shi-Tomasi corners inside all active detections."""
+        """Seed fresh Shi-Tomasi corners inside all active detections, or road corridor if empty."""
         pts = []
-        for det in detections:
-            x1, y1, x2, y2 = [int(v) for v in det.box]
-            x1, y1 = max(0, x1), max(0, y1)
-            x2, y2 = min(gray.shape[1], x2), min(gray.shape[0], y2)
-            roi = gray[y1:y2, x1:x2]
-            if roi.size == 0:
-                continue
-            corners = cv2.goodFeaturesToTrack(roi, mask=None, **self.feature_params)
+        if detections:
+            for det in detections:
+                x1, y1, x2, y2 = [int(v) for v in det.box]
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(gray.shape[1], x2), min(gray.shape[0], y2)
+                roi = gray[y1:y2, x1:x2]
+                if roi.size == 0:
+                    continue
+                corners = cv2.goodFeaturesToTrack(roi, mask=None, **self.feature_params)
+                if corners is not None:
+                    for c in corners:
+                        pts.append([[c[0, 0] + x1, c[0, 1] + y1]])
+        else:
+            # Fallback: track road corridor motion (vehicles, obstacles, lane markings)
+            h, w = gray.shape[:2]
+            mask = np.zeros_like(gray)
+            mask[int(h * 0.40):int(h * 0.95), int(w * 0.10):int(w * 0.90)] = 255
+            corners = cv2.goodFeaturesToTrack(gray, mask=mask, maxCorners=40, qualityLevel=0.1, minDistance=12)
             if corners is not None:
                 for c in corners:
-                    pts.append([[c[0, 0] + x1, c[0, 1] + y1]])
+                    pts.append([[c[0, 0], c[0, 1]]])
 
         if pts:
             self.tracked_pts = np.array(pts, dtype=np.float32)
