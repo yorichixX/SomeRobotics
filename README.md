@@ -78,7 +78,9 @@ The system detects three primary navigation-critical classes:
 
 Distance $Z$ to each detected obstacle is estimated using a perspective pinhole camera model based on known physical object heights ($H_{\text{real}}$) and the observed bounding box height ($h_{\text{bbox}}$):
 
-$$Z = \frac{f_y \cdot H_{\text{real}}}{h_{\text{bbox}}}$$
+$$
+Z = \frac{f_y \cdot H_{\text{real}}}{h_{\text{bbox}}}
+$$
 
 - **$f_y$:** Camera vertical focal length in pixels ($1108.51\text{ px}$ at $1280\times 720$, corresponding to $36^\circ$ vertical FOV).
 - **$H_{\text{real}}$:** Known physical height of the obstacle in meters.
