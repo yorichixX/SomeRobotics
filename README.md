@@ -49,9 +49,16 @@ The system detects three primary navigation-critical classes:
 2. `barrier` (Traffic / Jersey barrier)
 3. `stop_sign` (MUTCD octagonal stop sign)
 
+### Dataset Acquisition & Curation:
+- **Source:** Real-world road perception datasets acquired from **Roboflow Universe** across three unified navigation obstacle categories:
+  - `"cones"`: Highway and construction traffic cones under diverse roadway conditions.
+  - `"barrier"`: Concrete Jersey barriers, road barricades, and plastic water-filled safety barriers.
+  - `"stop sign"`: Standard MUTCD octagonal stop signs in natural street scenes.
+- **Preprocessing:** Label coordinates were sanitized, remapped to standard 0-indexed YOLO format, and verified for bounding coordinate integrity prior to transfer learning.
+
 ### Backbone Selection:
 - **Edge Deployment Backbone:** `yolov8n` (3.2M parameters) — lightweight, low-latency convolutional architecture designed for embedded robotics platforms.
-- **Transfer Learning:** Pretrained weights adapted on real-world road scenes to rapidly converge on domain-specific road obstacle geometries.
+- **Transfer Learning:** Pretrained weights fine-tuned on the curated dataset to rapidly converge on domain-specific road obstacle geometries.
 
 ### Validation Metrics & Training Convergence:
 - **Overall mAP@50:** **0.6031** across all classes
