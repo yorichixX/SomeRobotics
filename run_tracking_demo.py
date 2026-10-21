@@ -133,6 +133,8 @@ def main():
     parser = argparse.ArgumentParser(description="Run Optical Flow Tracking on Navigation Objects")
     parser.add_argument("--video", type=str, default=None, help="Input video file path")
     parser.add_argument("--model", type=str, default="weights/best.pt", help="Path to object detector model weights")
+    parser.add_argument("--conf", type=float, default=0.25, help="Detection confidence threshold")
+    parser.add_argument("--max-frames", type=int, default=None, help="Maximum number of frames to process")
     parser.add_argument("--use-real-video", action="store_true", help="Download and evaluate on real autonomous driving road footage")
     parser.add_argument("--output", type=str, default="data/output/tracked_flow_demo.mp4", help="Output video path")
 
@@ -147,7 +149,7 @@ def main():
 
     tracker = OpticalFlowTracker()
     model_to_use = args.model if (args.model and os.path.exists(args.model)) else None
-    detector = ObjectDetector(model_path=model_to_use)
+    detector = ObjectDetector(model_path=model_to_use, conf_threshold=args.conf)
 
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -190,6 +192,11 @@ def main():
 
         out.write(tracked_frame)
         frame_count += 1
+        if frame_count % 30 == 0:
+            print(f"Processed {frame_count} frames...")
+        if args.max_frames is not None and frame_count >= args.max_frames:
+            print(f"[INFO] Reached requested limit of {args.max_frames} frames.")
+            break
 
     cap.release()
     out.release()
