@@ -130,16 +130,10 @@ def main():
 
     bev_mapper = BirdEyeViewMapper() if args.bev else None
 
-    # Handle image, directory, or video
+    # Handle image or directory
     source = args.source
-    if not source:
-        for cand in ["data/dataset_clean/images/val", "data/test/images", "data/dataset/images/val"]:
-            if os.path.exists(cand):
-                source = cand
-                break
-
     if not source or not os.path.exists(source):
-        print(f"[ERROR] Source '{source}' not found. Please provide an input image, video, or image directory via --source <PATH>")
+        print(f"[ERROR] Source '{source}' not found. Please provide an input image or directory via --source <PATH>")
         return
 
     if os.path.isdir(source):

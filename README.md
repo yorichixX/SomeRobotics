@@ -159,14 +159,11 @@ conda activate eric_robot
 
 ### 2. Run Detection & Distance Estimation Pipeline
 ```bash
-# Process a folder of test / validation images with Bird's-Eye View radar overlay
-python run_pipeline.py --source path/to/test_images/ --bev --output-dir output/
+# Process a single test image with Bird's-Eye View (BEV) radar overlay
+python run_pipeline.py --source path/to/image.jpg --bev
 
-# Process a single image
-python run_pipeline.py --source path/to/image.jpg --bev --output-dir output/
-
-# Process a robot video stream or driving dashcam
-python run_pipeline.py --source path/to/robot_video.mp4 --bev --output-dir output/
+# Batch process a folder of test images
+python run_pipeline.py --source path/to/test_images/ --bev
 ```
 
 ### 3. Run Hardware Edge Optimization Benchmark
