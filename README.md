@@ -231,4 +231,3 @@ SomeRobotics/
 | **Author** | **Ashutosh Yadav** |
 | **Email** | [yadav.ashutosh2698@gmail.com](mailto:yadav.ashutosh2698@gmail.com) |
 | **Phone** | [+91 7488383448](tel:+917488383448) |
-| **GitHub** | [@yorichixX](https://github.com/yorichixX) |
