@@ -34,8 +34,8 @@ venv.bak/
 runs/
 *.onnx
 # We track sample weights and benchmark models
-!weights/detector_baseline.pt
-!weights/detector_pruned_30.pt
+!weights/*.pt
+!weights/*.onnx
 
 # Output data (track annotated verification results, ignore large video outputs)
 output/*.mp4
