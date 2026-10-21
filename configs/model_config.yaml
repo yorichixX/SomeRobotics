@@ -23,7 +23,7 @@ training:
   learning_rate_init: 0.01
   weight_decay: 0.0005
   optimizer: "SGD"
-  patience: 10
+  patience: 20
   save_dir: "runs/train"
 
 optimization:

@@ -56,9 +56,10 @@ The system detects three primary navigation-critical classes:
   - `"stop sign"`: Standard MUTCD octagonal stop signs in natural street scenes.
 - **Preprocessing:** Label coordinates were sanitized, remapped to standard 0-indexed YOLO format, and verified for bounding coordinate integrity prior to transfer learning.
 
-### Backbone Selection:
-- **Edge Deployment Backbone:** `yolov8n` (3.2M parameters) — lightweight, low-latency convolutional architecture designed for embedded robotics platforms.
+### Backbone Selection & Training Protocol:
+- **Edge Deployment Backbone:** yolov8n (3.2M parameters) — lightweight, low-latency convolutional architecture designed for embedded robotics platforms.
 - **Transfer Learning:** Pretrained weights fine-tuned on the curated dataset to rapidly converge on domain-specific road obstacle geometries.
+- **Early Stopping & Regularization:** Configured with an early stopping patience of **20 epochs** to guard against overfitting and preserve the optimal validation checkpoint.
 
 ### Validation Metrics & Training Convergence:
 - **Overall mAP@50:** **0.6031** across all classes
