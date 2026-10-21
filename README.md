@@ -40,8 +40,7 @@ flowchart TD
 
     subgraph Extra ["4. Extra Credit Features"]
         BEV["Inverse Perspective Mapping (IPM) -> Bird's-Eye View Grid"]
-        OptFlow["Lucas-Kanade Optical Flow Tracker (Moving Cone Vectors)"]
-        Epipolar["Stereo Epipolar Disparity-Depth Proof (docs/epipolar_geometry.md)"]
+        Epipolar["Stereo Epipolar Disparity-Depth Proof (epipolar_geometry.md)"]
     end
 
     Frame --> YOLO
@@ -49,7 +48,7 @@ flowchart TD
     BBoxes & Priors & CamIntrinsics --> PinholeEq & GroundEq
     PinholeEq & GroundEq --> Fusion --> Annotated
     YOLO --> Quant & Prune --> Bench
-    Annotated --> BEV & OptFlow
+    Annotated --> BEV
 ```
 
 ---
@@ -140,7 +139,7 @@ Evaluated across **100 iterations** (20 warmups) at 640x640 resolution on host w
 
 ### A. Epipolar Geometry Derivation
 Complete mathematical derivation and sensitivity proof located in:  
-👉 [`docs/epipolar_geometry.md`](file:///docs/epipolar_geometry.md)
+👉 [`epipolar_geometry.md`](epipolar_geometry.md)
 - Proves canonical stereo disparity-to-depth formula: $Z = \frac{f \cdot B}{d}$.
 - Demonstrates quadratic error growth: $|\Delta Z| \approx \frac{Z^2}{f \cdot B} |\Delta d|$.
 - Derives Essential matrix $E = [t]_\times R$ and Fundamental matrix $F = K_R^{-T} E K_L^{-1}$.
@@ -150,11 +149,6 @@ Complete mathematical derivation and sensitivity proof located in:
 - Warps front-facing perspective camera feed into a top-down metric radar grid.
 - Projects obstacles with 2D distance rings ($2.5\text{m}, 5.0\text{m}, 7.5\text{m}, \dots$) for obstacle avoidance.
 - Enabled via `--bev` flag in `run_pipeline.py`.
-
-### C. Lucas-Kanade Optical Flow Tracker
-- Tracks motion vectors $(\Delta x, \Delta y)$ of moving traffic obstacles across consecutive video frames.
-- Calculates velocity magnitude (pixels/frame) and renders tracking vectors.
-- Run demo via `python run_tracking_demo.py`.
 
 ---
 
@@ -166,11 +160,12 @@ Complete mathematical derivation and sensitivity proof located in:
 git clone https://github.com/yorichixX/SomeRobotics.git
 cd SomeRobotics
 
-# Run setup (Linux 4090 Workstation)
-bash setup_environment.sh
+# Install dependencies
+pip install -r requirements.txt
 
-# Or Windows
-setup_environment.bat
+# Or using Conda
+conda env create -f environment.yml
+conda activate eric_robot
 ```
 
 ### 2. Dataset Preparation & Inspection
@@ -224,8 +219,7 @@ SomeRobotics/
 │   └── model_config.yaml          # Architecture, inference, training hyperparameters
 ├── data/
 │   └── output/                    # Annotated images and videos
-├── docs/
-│   └── epipolar_geometry.md       # Rigorous epipolar geometry mathematical proof
+├── epipolar_geometry.md           # Rigorous epipolar geometry mathematical proof
 ├── reports/
 │   └── benchmark_report.md        # CPU vs GPU latency, FPS, memory benchmark results
 ├── src/
