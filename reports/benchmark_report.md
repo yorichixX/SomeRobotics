@@ -41,9 +41,3 @@
 
 ### D. Real-Time Edge Suitability
 * Both PyTorch on CUDA ($5.69\text{ ms} = 173.8\text{ FPS}$) and ONNX FP32 on CPU ($12.39\text{ ms} = 80.7\text{ FPS}$) substantially exceed the $30\text{ FPS}$ robotics navigation threshold, proving ready for field deployment on mobile ground robots.
-
-### E. Embedded Edge Deployment Roadmap: NVIDIA Jetson & TensorRT
-For deployment on physical mobile robots equipped with embedded NVIDIA SoCs (e.g., Jetson Orin Nano / Orin NX):
-1. **TensorRT Engine Compilation:** Compiling `weights/best.onnx` via `trtexec` or `yolo export format=engine half=True` fuses convolutions, batch norms, and activations into single CUDA kernels, utilizing FP16 and INT8 Tensor Cores for sub-$3\text{ ms}$ latency at $<15\text{W}$ TDP.
-2. **Unified Memory (UMA) Zero-Copy:** On Jetson boards, the ARM CPU and GPU share physical LPDDR5 memory. Camera frames captured via GStreamer/V4L2 can be mapped directly into CUDA memory with zero PCIe bus transfer overhead.
-3. **End-to-End CUDA Pipelines:** Preprocessing (letterboxing, color conversion) and postprocessing (BatchedNMS, BEV IPM homography) can be offloaded entirely to CUDA streams via `cv2.cuda`, leaving CPU cores 100% available for ROS2 navigation, path planning, and motor control loops.

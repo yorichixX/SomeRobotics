@@ -117,7 +117,7 @@ Evaluated across **100 iterations** (20 warmups) at 640x640 resolution on host w
 ### Optimization Insights:
 1. **INT8 Dynamic Quantization (-72.7% Model Footprint):** Successfully compresses weights from 12.18 MB to 3.32 MB. On compute-bound vision CNNs, dynamic activation scanning introduces CPU overhead (96.48 ms); for production deployment, **Static Post-Training Quantization (PTQ) with Calibration** fixes scale factors offline to eliminate runtime quantization overhead.
 2. **30% L1-Unstructured Pruning:** Pruned 64 Conv2d layers to 29.95% sparsity. While standard CPU dense GEMM computes zeros identically (30.61 ms -> 30.07 ms), reduced cache line traffic delivers a 16.3% speedup on the Ada Lovelace GPU (5.69 ms -> 4.76 ms).
-3. **Hardware Acceleration:** Native CUDA execution yields up to 207.3 FPS (4.76 ms latency), easily supporting multi-sensor robotics perception stacks. Detailed benchmarks and the embedded edge roadmap (TensorRT, Jetson UMA zero-copy) are documented in [`reports/benchmark_report.md`](reports/benchmark_report.md).
+3. **Hardware Acceleration:** Native CUDA execution yields up to 207.3 FPS (4.76 ms latency), easily supporting multi-sensor robotics perception stacks. Detailed benchmarks in reports/benchmark_report.md.
 
 ---
 
