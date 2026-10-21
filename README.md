@@ -57,9 +57,9 @@ The system detects three primary navigation-critical classes:
 - **Preprocessing:** Label coordinates were sanitized, remapped to standard 0-indexed YOLO format, and verified for bounding coordinate integrity prior to transfer learning.
 
 ### Backbone Selection & Training Protocol:
-- **Edge Deployment Backbone:** yolov8n (3.2M parameters) — lightweight, low-latency convolutional architecture designed for embedded robotics platforms.
+- **Edge Deployment Backbone:** `yolov8n` (3.2M parameters) — lightweight, low-latency convolutional architecture designed for embedded robotics platforms.
 - **Transfer Learning:** Pretrained weights fine-tuned on the curated dataset to rapidly converge on domain-specific road obstacle geometries.
-- **Early Stopping & Regularization:** Configured with an early stopping patience of **20 epochs** to guard against overfitting and preserve the optimal validation checkpoint.
+- **Early Stopping & Convergence:** Initialized for 200 epochs with an early stopping patience of **20 epochs**. Training converged and early stopping automatically triggered at **epoch 107**, locking in the optimal checkpoint with peak validation mAP.
 
 ### Validation Metrics & Training Convergence:
 - **Overall mAP@50:** **0.6031** across all classes
@@ -179,7 +179,7 @@ python -m unittest tests/test_geometry.py
 
 ### 5. Optional Fine-Tuning Training on GPU Workstation
 ```bash
-python -m src.models.train --data path/to/dataset.yaml --model yolov8n.pt --epochs 50 --batch 32 --device 0
+python -m src.models.train --data path/to/dataset.yaml --model yolov8n.pt --epochs 200 --patience 20 --batch 32 --device 0
 ```
 
 ---

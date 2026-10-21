@@ -9,7 +9,7 @@ import yaml
 def train_model(
     data_yaml: str = "data/dataset/dataset.yaml",
     model_name: str = "yolov8n.pt",
-    epochs: int = 50,
+    epochs: int = 200,
     batch_size: int = 32,
     imgsz: int = 640,
     device: str = "0",
@@ -117,7 +117,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train YOLO model for Eric Robots assignment")
     parser.add_argument("--data", type=str, default="data/dataset/dataset.yaml", help="Path to dataset.yaml")
     parser.add_argument("--model", type=str, default="yolov8n.pt", help="Pretrained model (e.g. yolov8n.pt, yolov8s.pt)")
-    parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=200, help="Number of training epochs")
     parser.add_argument("--batch", type=int, default=32, help="Batch size")
     parser.add_argument("--imgsz", type=int, default=640, help="Image resolution")
     parser.add_argument("--device", type=str, default="0", help="GPU device id ('0') or 'cpu'")

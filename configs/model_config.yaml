@@ -17,8 +17,8 @@ inference:
   half_precision: true         # FP16 inference on GPU
 
 training:
-  epochs: 50
-  batch_size: 32               # Optimized for RTX 4090 (24GB VRAM)
+  epochs: 200
+  batch_size: 32               # Optimized for GPU workstation
   workers: 8
   learning_rate_init: 0.01
   weight_decay: 0.0005
