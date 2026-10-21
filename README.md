@@ -66,6 +66,17 @@ The system detects three primary navigation-critical classes:
 - **Baseline Comparison Backbone:** `yolov8s` (11.2M parameters).
 - **Fine-Tuning:** Pretrained COCO weights are adapted via transfer learning to rapidly converge on domain-specific road obstacle geometries.
 
+### Validation Metrics & Training Convergence:
+- **Overall mAP@50:** **0.6031** across all classes
+- **Barrier mAP@50:** **0.647**
+- **Cone mAP@50:** **0.619**
+- **Stop Sign mAP@50:** **0.543** (0.916 on natural driving scenes)
+
+<p align="center">
+  <img src="reports/training_curves.png" alt="Training Loss and mAP Curves" width="49%"/>
+  <img src="reports/confusion_matrix.png" alt="Confusion Matrix" width="49%"/>
+</p>
+
 ---
 
 ## 2. Geometric Monocular Distance Estimation
