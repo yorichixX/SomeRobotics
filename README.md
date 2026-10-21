@@ -211,7 +211,7 @@ SomeRobotics/
 │   └── optimization/
 │       ├── benchmark.py          # Latency (ms) and throughput (FPS) profiler
 │       ├── pruner.py             # L1 unstructured weight pruning engine
-│       └── quantizer.py          # ONNX export and INT8 dynamic quantizer
+│       └── quantizer.py          # ONNX export, FP16 half-precision & INT8 quantizer
 └── weights/
     ├── best.pt                   # Trained PyTorch FP32 model
     ├── detector_pruned_30.pt     # 30% L1-unstructured pruned model
