@@ -40,7 +40,7 @@ def run_benchmarks(
     devices: List[str] = ["cpu", "cuda"],
     runs: int = 100,
     warmup: int = 20,
-    output_report: str = "reports/benchmark_report.md",
+    output_report: str = "output/reports/benchmark_report.md",
 ) -> None:
     """Run full benchmarking suite comparing unoptimized vs quantized vs pruned on CPU and GPU."""
     os.makedirs("weights", exist_ok=True)
@@ -164,7 +164,7 @@ def main():
     parser.add_argument("--model", type=str, default=None, help="Path to PyTorch or YOLO model")
     parser.add_argument("--runs", type=int, default=100, help="Number of benchmark iterations")
     parser.add_argument("--warmup", type=int, default=20, help="Number of warm-up iterations")
-    parser.add_argument("--report", type=str, default="reports/benchmark_report.md", help="Output report markdown path")
+    parser.add_argument("--report", type=str, default="output/reports/benchmark_report.md", help="Output report markdown path")
 
     args = parser.parse_args()
 

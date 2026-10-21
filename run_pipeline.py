@@ -108,7 +108,7 @@ def main():
     parser.add_argument("--device", type=str, default="cpu", help="Device: 'cpu' or 'cuda'")
     parser.add_argument("--conf", type=float, default=0.20, help="Confidence threshold (default: 0.20)")
     parser.add_argument("--bev", action="store_true", help="Enable Bird's-Eye View radar overlay")
-    parser.add_argument("--output-dir", type=str, default="data/output", help="Directory to save output")
+    parser.add_argument("--output-dir", type=str, default="output", help="Directory to save output")
 
     parser.add_argument("--max-images", type=int, default=100, help="Max images to process if source is a folder (0 for all)")
     parser.add_argument("--target-class", type=str, default=None, help="Filter to target class and guarantee positive detections (e.g. 'stop', 'cone', 'barrier')")

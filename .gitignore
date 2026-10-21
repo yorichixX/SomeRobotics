@@ -38,8 +38,8 @@ runs/
 !weights/detector_pruned_30.pt
 
 # Output data (track annotated verification results, ignore large video outputs)
-data/output/*.mp4
-data/output/*.avi
+output/*.mp4
+output/*.avi
 
 # IDE
 .vscode/

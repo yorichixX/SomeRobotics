@@ -60,8 +60,8 @@ The system detects three primary navigation-critical classes:
 - **Stop Sign mAP@50:** **0.543** (0.916 on natural driving scenes)
 
 <p align="center">
-  <img src="reports/training_curves.png" alt="Training Loss and mAP Curves" width="49%"/>
-  <img src="reports/confusion_matrix.png" alt="Confusion Matrix" width="49%"/>
+  <img src="output/reports/training_curves.png" alt="Training Loss and mAP Curves" width="49%"/>
+  <img src="output/reports/confusion_matrix.png" alt="Confusion Matrix" width="49%"/>
 </p>
 
 ---
@@ -92,7 +92,7 @@ Each bounding box is annotated in the required format:
 - `'Stop Sign, 3.2m'`
 - `'Barrier, 2.1m'`
 
-All annotated evaluation samples are available in [`data/output/`](data/output/).
+All annotated evaluation samples are available in [`output/`](output/).
 
 ---
 
@@ -114,13 +114,13 @@ Evaluated across **100 iterations** (20 warmups) at 640x640 resolution on host w
 | weights/best.onnx | ONNX FP32 | **CUDA (CPU Fallback)** | 12.28 ms | 12.98 ms | **81.4 FPS** | 12.18 MB | CPU execution provider fallback |
 
 <p align="center">
-  <img src="reports/benchmark_latency_comparison.png" alt="Edge Hardware Optimization Benchmark" width="95%"/>
+  <img src="output/reports/benchmark_latency_comparison.png" alt="Edge Hardware Optimization Benchmark" width="95%"/>
 </p>
 
 ### Optimization Insights:
 1. **INT8 Dynamic Quantization (-72.7% Model Footprint):** Successfully compresses weights from 12.18 MB to 3.32 MB. On compute-bound vision CNNs, dynamic activation scanning introduces CPU overhead (96.48 ms); for production deployment, **Static Post-Training Quantization (PTQ) with Calibration** fixes scale factors offline to eliminate runtime quantization overhead.
 2. **30% L1-Unstructured Pruning:** Pruned 64 Conv2d layers to 29.95% sparsity. While standard CPU dense GEMM computes zeros identically (30.61 ms -> 30.07 ms), reduced cache line traffic delivers a 16.3% speedup on the Ada Lovelace GPU (5.69 ms -> 4.76 ms).
-3. **Hardware Acceleration:** Native CUDA execution yields up to 207.3 FPS (4.76 ms latency), easily supporting multi-sensor robotics perception stacks. Detailed benchmarks in [`reports/benchmark_report.md`](reports/benchmark_report.md).
+3. **Hardware Acceleration:** Native CUDA execution yields up to 207.3 FPS (4.76 ms latency), easily supporting multi-sensor robotics perception stacks. Detailed benchmarks in [`output/reports/benchmark_report.md`](output/reports/benchmark_report.md).
 
 ---
 
@@ -147,43 +147,31 @@ conda env create -f environment.yml
 conda activate eric_robot
 ```
 
-### 2. Dataset Preparation & Inspection
-```bash
-# Inspect dataset class distribution table (Train / Val distribution)
-python prepare_dataset.py --summary
-
-# Download and extract an external road dataset archive:
-python prepare_dataset.py --mode download --url <DATASET_ZIP_URL> --output-dir data/dataset
-
-# Optional: Convert BDD100K JSON annotations to YOLO format
-python prepare_dataset.py --mode bdd100k --bdd-json path/to/bdd100k_labels.json --bdd-images path/to/images/
-```
-
-### 3. Run Detection & Distance Estimation Pipeline
+### 2. Run Detection & Distance Estimation Pipeline
 ```bash
 # Process a folder of test / validation images with Bird's-Eye View radar overlay
-python run_pipeline.py --source path/to/test_images/ --bev --output-dir data/output/
+python run_pipeline.py --source path/to/test_images/ --bev --output-dir output/
 
 # Process a single image
-python run_pipeline.py --source path/to/image.jpg --bev --output-dir data/output/
+python run_pipeline.py --source path/to/image.jpg --bev --output-dir output/
 
 # Process a robot video stream or driving dashcam
-python run_pipeline.py --source path/to/robot_video.mp4 --bev --output-dir data/output/
+python run_pipeline.py --source path/to/robot_video.mp4 --bev --output-dir output/
 ```
 
-### 4. Train Model on GPU Workstation
+### 3. Run Hardware Edge Optimization Benchmark
 ```bash
-python -m src.models.train --data data/dataset/dataset.yaml --model yolov8n.pt --epochs 50 --batch 32 --device 0
+python benchmark_models.py --runs 100 --warmup 20 --report output/reports/benchmark_report.md
 ```
 
-### 5. Run Hardware Edge Optimization Benchmark
-```bash
-python benchmark_models.py --runs 100 --warmup 20 --report reports/benchmark_report.md
-```
-
-### 6. Run Geometry & Pipeline Unit Tests
+### 4. Run Geometry & Pipeline Unit Tests
 ```bash
 python -m unittest tests/test_geometry.py
+```
+
+### 5. Optional Fine-Tuning Training on GPU Workstation
+```bash
+python -m src.models.train --data path/to/dataset.yaml --model yolov8n.pt --epochs 50 --batch 32 --device 0
 ```
 
 ---
@@ -197,22 +185,19 @@ SomeRobotics/
 │   ├── camera_config.yaml   # Pinhole intrinsics, FOV, principal point
 │   ├── object_priors.yaml   # Cone, barrier, stop sign physical dimensions
 │   └── model_config.yaml    # Architecture & inference hyperparameters
-├── data/
-│   └── output/              # Annotated validation images with distance HUD & BEV
 ├── environment.yml          # Standard Conda environment definition
 ├── epipolar_geometry.md     # Epipolar disparity-depth mathematical derivation
-├── prepare_dataset.py       # Dataset inspection & distribution summary CLI
+├── output/
+│   ├── annotated_*.jpg      # Annotated validation images with distance HUD & BEV
+│   └── reports/             # Benchmark charts, training loss curves & confusion matrix
+│       ├── benchmark_report.md
+│       ├── benchmark_latency_comparison.png
+│       ├── confusion_matrix.png
+│       └── training_curves.png
 ├── README.md                # Primary project documentation
-├── reports/
-│   ├── benchmark_report.md  # Detailed CPU vs GPU latency & size analysis
-│   ├── benchmark_latency_comparison.png # Multi-panel benchmark visualization
-│   ├── confusion_matrix.png # Multi-class confusion matrix
-│   └── training_curves.png  # 100-epoch training loss and mAP curves
 ├── requirements.txt         # Python dependencies
 ├── run_pipeline.py          # Detection & monocular distance estimation pipeline
 ├── src/
-│   ├── dataset/
-│   │   └── dataset_manager.py    # Dataset manager & format converter
 │   ├── extra/
 │   │   └── bev_homography.py     # Bird's-Eye View (IPM) top-down grid renderer
 │   ├── geometry/
@@ -225,6 +210,11 @@ SomeRobotics/
 │       ├── benchmark.py          # Latency (ms) and throughput (FPS) profiler
 │       ├── pruner.py             # L1 unstructured weight pruning engine
 │       └── quantizer.py          # ONNX export and INT8 dynamic quantizer
-└── tests/
-    └── test_geometry.py          # Unit tests for camera projection and distance math
+├── tests/
+│   └── test_geometry.py          # Unit tests for camera projection and distance math
+└── weights/
+    ├── best.pt                   # Trained PyTorch FP32 model
+    ├── detector_pruned_30.pt     # 30% L1-unstructured pruned model
+    ├── best.onnx                 # Graph-optimized ONNX FP32 model
+    └── best_int8.onnx            # INT8 dynamic quantized model (-72.7% size)
 ```
