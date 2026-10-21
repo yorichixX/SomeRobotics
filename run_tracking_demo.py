@@ -9,6 +9,19 @@ from src.models.detector import ObjectDetector, Detection
 from src.extra.optical_flow_tracker import OpticalFlowTracker
 
 
+def download_real_sample_video(output_path: str = "data/sample_videos/real_driving_sample.mp4") -> str:
+    """Download a real open-source driving video benchmark."""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 100000:
+        return output_path
+    url = "https://github.com/intel-iot-devkit/sample-videos/raw/master/car-detection.mp4"
+    print(f"[INFO] Fetching real open-source driving video benchmark from: {url}...")
+    import urllib.request
+    urllib.request.urlretrieve(url, output_path)
+    print(f"[COMPLETE] Real driving sample video saved to: {output_path}")
+    return output_path
+
+
 def generate_realistic_moving_video(
     output_path: str = "data/sample_videos/moving_cones_demo.mp4",
     num_frames: int = 90,
@@ -120,12 +133,15 @@ def main():
     parser = argparse.ArgumentParser(description="Run Optical Flow Tracking on Navigation Objects")
     parser.add_argument("--video", type=str, default=None, help="Input video file path")
     parser.add_argument("--model", type=str, default="weights/best.pt", help="Path to object detector model weights")
+    parser.add_argument("--use-real-video", action="store_true", help="Download and evaluate on real autonomous driving road footage")
     parser.add_argument("--output", type=str, default="data/output/tracked_flow_demo.mp4", help="Output video path")
 
     args = parser.parse_args()
 
     video_path = args.video
-    if video_path is None or not os.path.exists(video_path):
+    if args.use_real_video:
+        video_path = download_real_sample_video()
+    elif video_path is None or not os.path.exists(video_path):
         print("[INFO] No input video specified. Generating realistic test video sequence...")
         video_path = generate_realistic_moving_video()
 
