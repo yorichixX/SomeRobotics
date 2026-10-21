@@ -37,13 +37,9 @@ runs/
 !weights/detector_baseline.pt
 !weights/detector_pruned_30.pt
 
-# Output data (ignore bulk runs, allow curated demo samples)
-data/output/*.jpg
-data/output/*.png
+# Output data (track annotated verification results, ignore large video outputs)
 data/output/*.mp4
-!data/output/demo_*
-!data/output/sample_*
-!data/output/.gitkeep
+data/output/*.avi
 
 # IDE
 .vscode/
