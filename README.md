@@ -5,6 +5,9 @@
 [![YOLOv8](https://img.shields.io/badge/YOLO-v8-00FFFF.svg)](https://github.com/ultralytics/ultralytics)
 [![ONNX](https://img.shields.io/badge/ONNX-INT8%20Quantized-005CED.svg)](https://onnxruntime.ai/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Author](https://img.shields.io/badge/Author-Ashutosh%20Yadav-blueviolet.svg)](mailto:yadav.ashutosh2698@gmail.com)
+
+**Author:** Ashutosh Yadav  
 
 An end-to-end, edge-optimized perception system for mobile robotics navigation. The system detects navigation obstacles (**cones**, **barriers**, **stop signs**), estimates metric distance using pinhole geometry, and benchmarks edge optimizations (pruning, ONNX quantization) on CPU and GPU.
 
@@ -218,3 +221,14 @@ SomeRobotics/
     ├── best.onnx                 # Graph-optimized ONNX FP32 model
     └── best_int8.onnx            # INT8 dynamic quantized model (-72.7% size)
 ```
+
+---
+
+## Author & Contact Information
+
+| Field | Detail |
+| :--- | :--- |
+| **Author** | **Ashutosh Yadav** |
+| **Email** | [yadav.ashutosh2698@gmail.com](mailto:yadav.ashutosh2698@gmail.com) |
+| **Phone** | [+91 7488383448](tel:+917488383448) |
+| **GitHub** | [@yorichixX](https://github.com/yorichixX) |
