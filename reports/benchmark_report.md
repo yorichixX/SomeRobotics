@@ -21,6 +21,8 @@
 | `weights/detector_pruned_30.pt` | PyTorch Pruned (30%) | **CUDA** | **$4.76 \pm 0.87$** | **6.37** | **207.3** | 12.27 MB | **16.3% GPU speedup** from reduced L2 cache evictions |
 | `weights/best.onnx` | ONNX FP32 | **CUDA (Fallback)** | $12.28 \pm 0.52$ | 12.98 | **81.4** | 12.18 MB | Fell back to CPUExecutionProvider (`onnxruntime-gpu` absent) |
 
+![Edge Optimization Benchmark Latency and Throughput](benchmark_latency_comparison.png)
+
 ---
 
 ## 2. In-Depth Engineering Takeaways

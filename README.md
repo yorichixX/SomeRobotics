@@ -114,6 +114,10 @@ Evaluated across **100 iterations** (20 warmups) at 640x640 resolution on host w
 | weights/detector_pruned_30.pt | PyTorch Pruned (30%) | **CUDA** | **4.76 ms** | **6.37 ms** | **207.3 FPS** | 12.27 MB | **16.3% GPU speedup** via reduced L2 cache evictions |
 | weights/best.onnx | ONNX FP32 | **CUDA (CPU Fallback)** | 12.28 ms | 12.98 ms | **81.4 FPS** | 12.18 MB | CPU execution provider fallback |
 
+<p align="center">
+  <img src="reports/benchmark_latency_comparison.png" alt="Edge Hardware Optimization Benchmark" width="95%"/>
+</p>
+
 ### Optimization Insights:
 1. **INT8 Dynamic Quantization (-72.7% Model Footprint):** Successfully compresses weights from 12.18 MB to 3.32 MB. On compute-bound vision CNNs, dynamic activation scanning introduces CPU overhead (96.48 ms); for production deployment, **Static Post-Training Quantization (PTQ) with Calibration** fixes scale factors offline to eliminate runtime quantization overhead.
 2. **30% L1-Unstructured Pruning:** Pruned 64 Conv2d layers to 29.95% sparsity. While standard CPU dense GEMM computes zeros identically (30.61 ms -> 30.07 ms), reduced cache line traffic delivers a 16.3% speedup on the Ada Lovelace GPU (5.69 ms -> 4.76 ms).
