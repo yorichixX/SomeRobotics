@@ -158,16 +158,13 @@ bash setup_environment.sh
 setup_environment.bat
 ```
 
-### 2. Prepare Dataset (Option A - Unified Cones, Barriers, Stop Signs)
+### 2. Dataset Preparation & Inspection
 ```bash
-# Option A (Recommended): One-command dataset preparation and class distribution check
-python prepare_dataset.py --mode download
-
-# Download from an external zip URL (if using custom archive)
-python prepare_dataset.py --mode download --url <DATASET_ZIP_URL>
-
-# Inspect dataset class distribution table
+# Inspect dataset class distribution table (Train / Val distribution)
 python prepare_dataset.py --summary
+
+# Download and extract an external road dataset archive:
+python prepare_dataset.py --mode download --url <DATASET_ZIP_URL> --output-dir data/dataset
 
 # Optional: Convert BDD100K JSON annotations to YOLO format
 python prepare_dataset.py --mode bdd100k --bdd-json path/to/bdd100k_labels.json --bdd-images path/to/images/
@@ -175,10 +172,13 @@ python prepare_dataset.py --mode bdd100k --bdd-json path/to/bdd100k_labels.json 
 
 ### 3. Run Detection & Distance Estimation Pipeline
 ```bash
-# Process validation images with Bird's-Eye View radar overlay
-python run_pipeline.py --source data/dataset/images/val --bev --output-dir data/output/
+# Process a folder of test / validation images with Bird's-Eye View radar overlay
+python run_pipeline.py --source path/to/test_images/ --bev --output-dir data/output/
 
-# Process a video stream or camera feed
+# Process a single image
+python run_pipeline.py --source path/to/image.jpg --bev --output-dir data/output/
+
+# Process a robot video stream or driving dashcam
 python run_pipeline.py --source path/to/robot_video.mp4 --bev --output-dir data/output/
 ```
 
@@ -213,8 +213,6 @@ SomeRobotics/
 │   ├── object_priors.yaml         # Cone, barrier, stop sign physical dimensions
 │   └── model_config.yaml          # Architecture, inference, training hyperparameters
 ├── data/
-│   ├── dataset/                   # Train and validation images and YOLO labels
-│   ├── sample_videos/             # Test video clips
 │   └── output/                    # Annotated images and videos
 ├── docs/
 │   └── epipolar_geometry.md       # Rigorous epipolar geometry mathematical proof
@@ -222,7 +220,7 @@ SomeRobotics/
 │   └── benchmark_report.md        # CPU vs GPU latency, FPS, memory benchmark results
 ├── src/
 │   ├── dataset/
-│   │   └── dataset_manager.py     # BDD100K converter & synthetic dataset generator
+│   │   └── dataset_manager.py     # BDD100K converter & dataset manager utility
 │   ├── geometry/
 │   │   ├── camera_model.py        # Pinhole model, intrinsics, ground ray projection
 │   │   └── distance_estimator.py  # Monocular distance estimation & annotation formatting

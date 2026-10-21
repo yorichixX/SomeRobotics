@@ -101,7 +101,7 @@ def process_video(
 
 def main():
     parser = argparse.ArgumentParser(description="Eric Robots: Detection + Distance Estimation Pipeline")
-    parser.add_argument("--source", type=str, default="data/dataset/images/val", help="Path to image, video, or folder")
+    parser.add_argument("--source", type=str, default=None, help="Path to image, video, or folder of images")
     parser.add_argument("--model", type=str, default=None, help="Path to .pt or .onnx weights (optional)")
     parser.add_argument("--camera-config", type=str, default="configs/camera_config.yaml", help="Camera calibration YAML")
     parser.add_argument("--priors-config", type=str, default="configs/object_priors.yaml", help="Object priors YAML")
@@ -132,6 +132,16 @@ def main():
 
     # Handle image, directory, or video
     source = args.source
+    if not source:
+        for cand in ["data/dataset_clean/images/val", "data/test/images", "data/dataset/images/val"]:
+            if os.path.exists(cand):
+                source = cand
+                break
+
+    if not source or not os.path.exists(source):
+        print(f"[ERROR] Source '{source}' not found. Please provide an input image, video, or image directory via --source <PATH>")
+        return
+
     if os.path.isdir(source):
         all_imgs = sorted(glob.glob(os.path.join(source, "*.[jJ][pP][gG]")) + glob.glob(os.path.join(source, "*.[pP][nN][gG]")))
 
