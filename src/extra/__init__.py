@@ -1,5 +1,4 @@
-"""Extra credit modules: Bird's-Eye View Homography and Optical Flow Tracking."""
+"""Extra credit module: Bird's-Eye View (BEV) Homography and Inverse Perspective Mapping."""
 from .bev_homography import BirdEyeViewMapper
-from .optical_flow_tracker import OpticalFlowTracker
 
-__all__ = ["BirdEyeViewMapper", "OpticalFlowTracker"]
+__all__ = ["BirdEyeViewMapper"]

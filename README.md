@@ -192,12 +192,7 @@ python -m src.models.train --data data/dataset/dataset.yaml --model yolov8n.pt -
 python benchmark_models.py --runs 100 --warmup 20 --report reports/benchmark_report.md
 ```
 
-### 6. Run Optical Flow Moving Obstacle Tracking Demo
-```bash
-python run_tracking_demo.py --output data/output/tracked_flow_demo.mp4
-```
-
-### 7. Run Geometry & Pipeline Unit Tests
+### 6. Run Geometry & Pipeline Unit Tests
 ```bash
 python -m unittest tests/test_geometry.py
 ```
@@ -232,16 +227,13 @@ SomeRobotics/
 │   │   ├── pruner.py              # L1 unstructured weight pruning & sparsity metrics
 │   │   └── benchmark.py           # Latency (ms) and throughput (FPS) benchmark engine
 │   └── extra/
-│       ├── bev_homography.py      # Bird's-Eye View (IPM) top-down grid renderer
-│       └── optical_flow_tracker.py# Lucas-Kanade optical flow obstacle tracker
+│       └── bev_homography.py      # Bird's-Eye View (IPM) top-down grid renderer
 ├── tests/
 │   └── test_geometry.py           # Unit tests for camera projection and distance math
 ├── benchmark_models.py            # Benchmark execution script
+├── environment.yml                # Conda environment definition
 ├── prepare_dataset.py             # Dataset preparation CLI
 ├── run_pipeline.py                # Main inference and distance annotation pipeline
-├── run_tracking_demo.py           # Optical flow obstacle tracking demo
-├── setup_environment.sh           # Linux workstation setup script
-├── setup_environment.bat          # Windows setup script
 ├── requirements.txt               # Dependencies
 └── README.md                      # Primary project documentation
 ```
