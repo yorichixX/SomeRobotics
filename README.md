@@ -2,53 +2,42 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-ee4c2c.svg)](https://pytorch.org/)
-[![YOLOv8](https://img.shields.io/badge/YOLO-v8%20%2F%20v11-00FFFF.svg)](https://github.com/ultralytics/ultralytics)
+[![YOLOv8](https://img.shields.io/badge/YOLO-v8-00FFFF.svg)](https://github.com/ultralytics/ultralytics)
 [![ONNX](https://img.shields.io/badge/ONNX-INT8%20Quantized-005CED.svg)](https://onnxruntime.ai/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An end-to-end, edge-optimized perception system for mobile robotics navigation. The system detects navigation obstacles (**cones**, **barriers**, **stop signs**), estimates physical metric distance from the robot camera using pinhole projection geometry, and implements optimization techniques (quantization, pruning, lightweight backbones) benchmarked on CPU and GPU.
+An end-to-end, edge-optimized perception system for mobile robotics navigation. The system detects navigation obstacles (**cones**, **barriers**, **stop signs**), estimates metric distance using pinhole geometry, and benchmarks edge optimizations (pruning, ONNX quantization) on CPU and GPU.
 
 ---
 
 ## Architecture Overview
 
 ```mermaid
-flowchart TD
-    subgraph Input ["Perception Input"]
-        Frame["Camera Frame / Video Stream (1280x720)"]
+flowchart LR
+    subgraph Input ["Input"]
+        Images["Road Images (1280x720 / 640x640)"]
     end
 
-    subgraph Detection ["1. Object Detection Engine"]
-        YOLO["Transfer Learning Detector (YOLOv8n / v11n)"]
-        BBoxes["Bounding Boxes [xmin, ymin, xmax, ymax] + Confidence"]
+    subgraph Detection ["1. Object Detection"]
+        YOLO["YOLOv8n Detector"]
+        BBoxes["Obstacle Boxes (Cones, Barriers, Stop Signs)"]
     end
 
-    subgraph Geometry ["2. Monocular Distance Estimation"]
-        Priors["Physical Dimensions (Cone: 0.7m, Barrier: 0.85m, Stop Sign: 0.75m)"]
-        CamIntrinsics["Pinhole Camera Model (Focal Length fx, fy, cx, cy)"]
-        PinholeEq["Pinhole Projection: Z = (f * H_real) / h_bbox"]
-        GroundEq["Ground Plane Ray Intersection: Z_ground"]
-        Fusion["Confidence-Weighted Sensor Fusion"]
-        Annotated["Formatted Annotations: 'Cone, 1.5m', 'Stop Sign, 3.2m'"]
+    subgraph Geometry ["2. Distance Estimation"]
+        Priors["Object Priors (H_real) & Intrinsics (fy)"]
+        Pinhole["Pinhole Formula: Z = (fy * H_real) / h_bbox"]
+        Annotated["HUD Output: 'Cone, 1.5m'"]
     end
 
-    subgraph Edge ["3. Edge Device Optimization"]
-        Quant["ONNX Dynamic INT8 Quantization (~75% size reduction)"]
-        Prune["Conv2d L1-Unstructured Pruning (30% weight sparsity)"]
-        Bench["CPU vs GPU Benchmark (Latency, FPS, Memory Footprint)"]
+    subgraph Edge ["3. Edge Optimization"]
+        Pruning["30% Conv2d Pruning"]
+        Quant["INT8 Quantization (-72.7% size)"]
+        Bench["Benchmark (CPU: 80.7 FPS, GPU: 207 FPS)"]
     end
 
-    subgraph Extra ["4. Extra Credit Features"]
-        BEV["Inverse Perspective Mapping (IPM) -> Bird's-Eye View Grid"]
-        Epipolar["Stereo Epipolar Disparity-Depth Proof (epipolar_geometry.md)"]
-    end
-
-    Frame --> YOLO
-    YOLO --> BBoxes
-    BBoxes & Priors & CamIntrinsics --> PinholeEq & GroundEq
-    PinholeEq & GroundEq --> Fusion --> Annotated
-    YOLO --> Quant & Prune --> Bench
-    Annotated --> BEV
+    Images --> YOLO --> BBoxes
+    BBoxes & Priors --> Pinhole --> Annotated
+    YOLO --> Pruning & Quant --> Bench
 ```
 
 ---
@@ -61,9 +50,8 @@ The system detects three primary navigation-critical classes:
 3. `stop_sign` (MUTCD octagonal stop sign)
 
 ### Backbone Selection:
-- **Edge Deployment Backbone:** `yolov8n` (3.2M parameters) — engineered for micro-edge platforms (e.g., Jetson Nano, Raspberry Pi, robot onboard SBCs).
-- **Baseline Comparison Backbone:** `yolov8s` (11.2M parameters).
-- **Fine-Tuning:** Pretrained COCO weights are adapted via transfer learning to rapidly converge on domain-specific road obstacle geometries.
+- **Edge Deployment Backbone:** `yolov8n` (3.2M parameters) — lightweight, low-latency convolutional architecture designed for embedded robotics platforms.
+- **Transfer Learning:** Pretrained weights adapted on real-world road scenes to rapidly converge on domain-specific road obstacle geometries.
 
 ### Validation Metrics & Training Convergence:
 - **Overall mAP@50:** **0.6031** across all classes
@@ -80,30 +68,31 @@ The system detects three primary navigation-critical classes:
 
 ## 2. Geometric Monocular Distance Estimation
 
-### Pinhole Camera Formulation
-Under a perspective pinhole camera model with focal length $f_y$ (pixels), an object with physical height $H_{\text{real}}$ (meters) appearing with bounding box height $h_{\text{bbox}}$ (pixels) has distance $Z$ (meters):
+Distance $Z$ to each detected obstacle is estimated using a perspective pinhole camera model based on known physical object heights ($H_{\text{real}}$) and the observed bounding box height ($h_{\text{bbox}}$):
 
 $$Z = \frac{f_y \cdot H_{\text{real}}}{h_{\text{bbox}}}$$
 
-Where focal length is derived from camera horizontal Field of View ($\text{FOV}_h$):
-$$f_x = \frac{W_{\text{image}}}{2 \cdot \tan\left(\frac{\text{FOV}_h}{2}\right)}$$
+- **$f_y$:** Camera vertical focal length in pixels ($1108.51\text{ px}$ at $1280\times 720$, corresponding to $36^\circ$ vertical FOV).
+- **$H_{\text{real}}$:** Known physical height of the obstacle in meters.
+- **$h_{\text{bbox}}$:** Bounding box pixel height $(y_{\max} - y_{\min})$.
 
 ### Physical Priors ($H_{\text{real}}$):
-| Object Class | Real-World Height ($H_{\text{real}}$) | Real-World Width ($W_{\text{real}}$) | Aspect Ratio ($H/W$) |
-| :--- | :---: | :---: | :---: |
-| **Traffic Cone** | $0.70\text{ m}$ ($70\text{ cm}$) | $0.38\text{ m}$ ($38\text{ cm}$) | $\approx 1.84$ |
-| **Traffic Barrier** | $0.85\text{ m}$ ($85\text{ cm}$) | $1.50\text{ m}$ ($150\text{ cm}$) | $\approx 0.57$ |
-| **Stop Sign** | $0.75\text{ m}$ ($75\text{ cm}$) | $0.75\text{ m}$ ($75\text{ cm}$) | $1.00$ |
+| Object Class | Real-World Height ($H_{\text{real}}$) | Metric Prior Source |
+| :--- | :---: | :--- |
+| **Traffic Cone** | $0.70\text{ m}$ ($70\text{ cm}$) | Standard MUTCD traffic cone height |
+| **Traffic Barrier** | $0.85\text{ m}$ ($85\text{ cm}$) | Standard concrete / Jersey highway barrier height |
+| **Stop Sign** | $0.75\text{ m}$ ($75\text{ cm}$) | Standard octagonal MUTCD regulatory sign |
 
-### Ground-Plane Constraint & Boundary Handling:
-When objects are clipped by the image edge (e.g., cone partially below the bumper), the system automatically fusions bottom-edge ground projection:
-$$Z_{\text{ground}} = \frac{h_{\text{camera}}}{\tan\left(\theta_{\text{pitch}} + \arctan\left(\frac{v_{\text{bottom}} - c_y}{f_y}\right)\right)}$$
+### Boundary & Ground Fallback:
+When an obstacle is partially clipped by the lower image boundary, the system computes ground-plane ray projection from camera mounting height ($h_{\text{cam}} = 1.20\text{m}$) and pitch angle to maintain reliable distance estimates.
 
-### Output Annotation Format:
-Bounding boxes are annotated with the required concise format:
-- `Cone, 1.5m`
-- `Stop Sign, 3.2m`
-- `Barrier, 2.1m`
+### Formatted HUD Annotations:
+Each bounding box is annotated in the required format:
+- `'Cone, 1.5m'`
+- `'Stop Sign, 3.2m'`
+- `'Barrier, 2.1m'`
+
+All annotated evaluation samples are available in [`data/output/`](data/output/).
 
 ---
 
@@ -131,24 +120,14 @@ Evaluated across **100 iterations** (20 warmups) at 640x640 resolution on host w
 ### Optimization Insights:
 1. **INT8 Dynamic Quantization (-72.7% Model Footprint):** Successfully compresses weights from 12.18 MB to 3.32 MB. On compute-bound vision CNNs, dynamic activation scanning introduces CPU overhead (96.48 ms); for production deployment, **Static Post-Training Quantization (PTQ) with Calibration** fixes scale factors offline to eliminate runtime quantization overhead.
 2. **30% L1-Unstructured Pruning:** Pruned 64 Conv2d layers to 29.95% sparsity. While standard CPU dense GEMM computes zeros identically (30.61 ms -> 30.07 ms), reduced cache line traffic delivers a 16.3% speedup on the Ada Lovelace GPU (5.69 ms -> 4.76 ms).
-3. **Hardware Acceleration:** Native CUDA execution yields up to 207.3 FPS (4.76 ms latency), easily supporting multi-sensor robotics perception stacks. Detailed benchmarks in reports/benchmark_report.md.
+3. **Hardware Acceleration:** Native CUDA execution yields up to 207.3 FPS (4.76 ms latency), easily supporting multi-sensor robotics perception stacks. Detailed benchmarks in [`reports/benchmark_report.md`](reports/benchmark_report.md).
 
 ---
 
-## 4. Extra Credit Explorations
+## 4. Mathematical Derivations & Extensions
 
-### A. Epipolar Geometry Derivation
-Complete mathematical derivation and sensitivity proof located in:  
-👉 [`epipolar_geometry.md`](epipolar_geometry.md)
-- Proves canonical stereo disparity-to-depth formula: $Z = \frac{f \cdot B}{d}$.
-- Demonstrates quadratic error growth: $|\Delta Z| \approx \frac{Z^2}{f \cdot B} |\Delta d|$.
-- Derives Essential matrix $E = [t]_\times R$ and Fundamental matrix $F = K_R^{-T} E K_L^{-1}$.
-
-### B. Bird's-Eye View (BEV) Homography / IPM
-- Calculates 4-point ground homography matrix $H$.
-- Warps front-facing perspective camera feed into a top-down metric radar grid.
-- Projects obstacles with 2D distance rings ($2.5\text{m}, 5.0\text{m}, 7.5\text{m}, \dots$) for obstacle avoidance.
-- Enabled via `--bev` flag in `run_pipeline.py`.
+- **Epipolar Geometry Derivation:** Complete mathematical proof of the canonical stereo disparity-to-depth formula ($Z = \frac{f \cdot B}{d}$), quadratic error propagation ($|\Delta Z| \approx \frac{Z^2}{f \cdot B}|\Delta d|$), and Essential/Fundamental matrices located in [`epipolar_geometry.md`](epipolar_geometry.md).
+- **Bird's-Eye View (BEV) Radar:** 4-point inverse perspective mapping (IPM) projecting obstacles onto a top-down metric grid with distance rings ($2.5\text{m}, 5.0\text{m}, 7.5\text{m}$) via `python run_pipeline.py --bev`.
 
 ---
 
@@ -192,7 +171,7 @@ python run_pipeline.py --source path/to/image.jpg --bev --output-dir data/output
 python run_pipeline.py --source path/to/robot_video.mp4 --bev --output-dir data/output/
 ```
 
-### 4. Train Model on 4090 Workstation
+### 4. Train Model on GPU Workstation
 ```bash
 python -m src.models.train --data data/dataset/dataset.yaml --model yolov8n.pt --epochs 50 --batch 32 --device 0
 ```
@@ -213,36 +192,39 @@ python -m unittest tests/test_geometry.py
 
 ```
 SomeRobotics/
+├── benchmark_models.py      # Edge optimization latency, FPS & size benchmark
 ├── configs/
-│   ├── camera_config.yaml         # Pinhole intrinsics, FOV, principal point
-│   ├── object_priors.yaml         # Cone, barrier, stop sign physical dimensions
-│   └── model_config.yaml          # Architecture, inference, training hyperparameters
+│   ├── camera_config.yaml   # Pinhole intrinsics, FOV, principal point
+│   ├── object_priors.yaml   # Cone, barrier, stop sign physical dimensions
+│   └── model_config.yaml    # Architecture & inference hyperparameters
 ├── data/
-│   └── output/                    # Annotated images and videos
-├── epipolar_geometry.md           # Rigorous epipolar geometry mathematical proof
+│   └── output/              # Annotated validation images with distance HUD & BEV
+├── environment.yml          # Standard Conda environment definition
+├── epipolar_geometry.md     # Epipolar disparity-depth mathematical derivation
+├── prepare_dataset.py       # Dataset inspection & distribution summary CLI
+├── README.md                # Primary project documentation
 ├── reports/
-│   └── benchmark_report.md        # CPU vs GPU latency, FPS, memory benchmark results
+│   ├── benchmark_report.md  # Detailed CPU vs GPU latency & size analysis
+│   ├── benchmark_latency_comparison.png # Multi-panel benchmark visualization
+│   ├── confusion_matrix.png # Multi-class confusion matrix
+│   └── training_curves.png  # 100-epoch training loss and mAP curves
+├── requirements.txt         # Python dependencies
+├── run_pipeline.py          # Detection & monocular distance estimation pipeline
 ├── src/
 │   ├── dataset/
-│   │   └── dataset_manager.py     # BDD100K converter & dataset manager utility
+│   │   └── dataset_manager.py    # Dataset manager & format converter
+│   ├── extra/
+│   │   └── bev_homography.py     # Bird's-Eye View (IPM) top-down grid renderer
 │   ├── geometry/
-│   │   ├── camera_model.py        # Pinhole model, intrinsics, ground ray projection
-│   │   └── distance_estimator.py  # Monocular distance estimation & annotation formatting
+│   │   ├── camera_model.py       # Pinhole model & ray projection
+│   │   └── distance_estimator.py # Metric distance calculation & HUD formatting
 │   ├── models/
-│   │   ├── detector.py            # ObjectDetector wrapper with ONNX and YOLO support
-│   │   └── train.py               # Transfer learning fine-tuning entrypoint
-│   ├── optimization/
-│   │   ├── quantizer.py           # ONNX export and INT8 dynamic quantization
-│   │   ├── pruner.py              # L1 unstructured weight pruning & sparsity metrics
-│   │   └── benchmark.py           # Latency (ms) and throughput (FPS) benchmark engine
-│   └── extra/
-│       └── bev_homography.py      # Bird's-Eye View (IPM) top-down grid renderer
-├── tests/
-│   └── test_geometry.py           # Unit tests for camera projection and distance math
-├── benchmark_models.py            # Benchmark execution script
-├── environment.yml                # Conda environment definition
-├── prepare_dataset.py             # Dataset preparation CLI
-├── run_pipeline.py                # Main inference and distance annotation pipeline
-├── requirements.txt               # Dependencies
-└── README.md                      # Primary project documentation
+│   │   ├── detector.py           # Object detector wrapper (PyTorch & ONNX)
+│   │   └── train.py              # Transfer learning fine-tuning entrypoint
+│   └── optimization/
+│       ├── benchmark.py          # Latency (ms) and throughput (FPS) profiler
+│       ├── pruner.py             # L1 unstructured weight pruning engine
+│       └── quantizer.py          # ONNX export and INT8 dynamic quantizer
+└── tests/
+    └── test_geometry.py          # Unit tests for camera projection and distance math
 ```
