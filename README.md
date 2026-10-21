@@ -174,12 +174,7 @@ python run_pipeline.py --source path/to/robot_video.mp4 --bev --output-dir outpu
 python benchmark_models.py --runs 100 --warmup 20 --report output/reports/benchmark_report.md
 ```
 
-### 4. Run Geometry & Pipeline Unit Tests
-```bash
-python -m unittest tests/test_geometry.py
-```
-
-### 5. Optional Fine-Tuning Training on GPU Workstation
+### 4. Optional Fine-Tuning Training on GPU Workstation
 ```bash
 python -m src.models.train --data path/to/dataset.yaml --model yolov8n.pt --epochs 200 --patience 20 --batch 32 --device 0
 ```
@@ -220,8 +215,6 @@ SomeRobotics/
 │       ├── benchmark.py          # Latency (ms) and throughput (FPS) profiler
 │       ├── pruner.py             # L1 unstructured weight pruning engine
 │       └── quantizer.py          # ONNX export and INT8 dynamic quantizer
-├── tests/
-│   └── test_geometry.py          # Unit tests for camera projection and distance math
 └── weights/
     ├── best.pt                   # Trained PyTorch FP32 model
     ├── detector_pruned_30.pt     # 30% L1-unstructured pruned model
